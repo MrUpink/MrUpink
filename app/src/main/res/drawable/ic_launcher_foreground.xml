@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ikon: bintang dengan huruf "A" (area aman 66dp di tengah kanvas 108dp) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF6B6B"
+        android:pathData="M54,22 L62.2,42.7 L84.4,44.1 L67.3,58.3 L72.8,79.9 L54,68 L35.2,79.9 L40.7,58.3 L23.6,44.1 L45.8,42.7 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,40 L64,66 L58.6,66 L56.7,60.6 L51.3,60.6 L49.4,66 L44,66 Z M52.6,56.6 L55.4,56.6 L54,52.4 Z" />
+</vector>

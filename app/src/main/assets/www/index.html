@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#4dabf7">
+  <title>Pintar Ceria</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Layar utama -->
+  <section id="home" class="screen active">
+    <header class="home-header">
+      <div class="brand">
+        <span class="brand-logo">🦉</span>
+        <div>
+          <h1>Pintar Ceria</h1>
+          <p>Belajar sambil bermain</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="star-count" title="Bintang"><span>⭐</span><b id="home-stars">0</b></div>
+        <button class="icon-btn" id="btn-settings" aria-label="Pengaturan">⚙️</button>
+      </div>
+    </header>
+
+    <div class="age-box">
+      <span class="age-label">Umur anak:</span>
+      <div class="age-chips" id="age-chips">
+        <button data-age="1">👶 1–3 th</button>
+        <button data-age="2">🧒 4–6 th</button>
+        <button data-age="3">🧑‍🎓 7–10 th</button>
+      </div>
+    </div>
+
+    <main id="menu"></main>
+  </section>
+
+  <!-- Layar permainan -->
+  <section id="play" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" id="btn-back" aria-label="Kembali">⬅️</button>
+      <h2 id="play-title">Permainan</h2>
+      <div class="star-count"><span>⭐</span><b id="play-stars">0</b></div>
+    </header>
+    <div id="stage"></div>
+  </section>
+
+  <!-- Hadiah -->
+  <div id="reward" class="overlay hidden">
+    <div class="modal reward-modal">
+      <div class="trophy">🏆</div>
+      <h2>Hebat Sekali!</h2>
+      <p id="reward-text"></p>
+      <div class="reward-stars" id="reward-stars"></div>
+      <div class="modal-actions">
+        <button class="btn btn-green" id="btn-again">🔁 Main Lagi</button>
+        <button class="btn btn-blue" id="btn-menu">🏠 Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pengaturan -->
+  <div id="settings" class="overlay hidden">
+    <div class="modal">
+      <h2>⚙️ Pengaturan</h2>
+      <label class="toggle"><input type="checkbox" id="set-sound"> <span>🎵 Efek suara</span></label>
+      <label class="toggle"><input type="checkbox" id="set-voice"> <span>🗣️ Suara pemandu</span></label>
+      <div class="parent-info">
+        <b>Untuk Orang Tua</b>
+        <p>Pilih umur anak agar tingkat kesulitan menyesuaikan. Permainan bertanda ⭐ Cocok paling sesuai untuk umur tersebut. Dampingi anak dan batasi waktu layar sekitar 15–30 menit per sesi.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-red" id="btn-reset">🗑️ Reset Bintang</button>
+        <button class="btn btn-blue" id="btn-close-settings">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confetti-layer"></div>
+
+  <script src="js/core.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/games-huruf.js"></script>
+  <script src="js/games-angka.js"></script>
+  <script src="js/games-motorik.js"></script>
+  <script src="js/games-logika.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
