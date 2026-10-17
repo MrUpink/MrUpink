@@ -7,27 +7,30 @@ dan berjalan **100% offline** tanpa iklan.
 
 ## Fitur
 
-Pilih umur anak di layar utama — tingkat kesulitan setiap permainan menyesuaikan:
+Alur aplikasi: **pilih umur (1–10 tahun) → pilih kategori belajar → pilih permainan → pilih level**.
 
-| Level | Umur | Contoh penyesuaian |
-|---|---|---|
-| 1 | 1–3 tahun | 3 pilihan jawaban, ada contoh/gambar bantu, gerakan lambat |
-| 2 | 4–6 tahun | 4 pilihan, tanpa petunjuk, soal lebih bervariasi |
-| 3 | 7–10 tahun | 6 pilihan, huruf kecil, perkalian/pembagian, teka-teki |
+- Hanya permainan yang cocok untuk umur anak yang ditampilkan.
+- Tingkat kesulitan (skala 1–10) = umur anak + level yang dipilih. Setiap permainan
+  menyesuaikan isi soal: jumlah pilihan, rentang angka, panjang kata, kalimat,
+  ketelitian jam, kecepatan balon, dan lain-lain.
+- Setiap permainan punya beberapa level yang terbuka bertahap; tiap level diberi
+  1–3 bintang sesuai jawaban benar pada percobaan pertama.
+- Suara pemandu memilih suara Bahasa Indonesia berkualitas tertinggi di HP; orang tua
+  dapat mengganti suara & kecepatan bicara di ⚙️ Pengaturan. Ejaan pelafalan huruf dan
+  suku kata diatur di `LETTER_SAY` / `saySyllable` pada `js/core.js`.
 
 **📚 Huruf & Membaca** — Kenal Huruf (A–Z + gambar), Belajar Suku Kata (BA BI BU BE BO),
-Cari Huruf, Huruf Awal, Susun Huruf, Susun Suku Kata, Ayo Membaca.
+Cari Huruf, Huruf Awal, Susun Huruf, Susun Suku Kata, Ayo Membaca (kata & kalimat), Menulis Huruf.
 
-**🔢 Angka & Berhitung** — Kenal Angka (0–20), Ayo Berhitung (ketuk untuk menghitung),
-Tambah & Kurang (level 3: × dan :), Banyak & Sedikit, Angka Hilang (pola bilangan),
-Membaca Jam.
+**🔢 Angka & Berhitung** — Kenal Angka, Ayo Menghitung (ketuk untuk menghitung),
+Matematika (+ − × :), Banyak & Sedikit, Angka Hilang (pola bilangan), Membaca Jam,
+Menulis Angka.
 
-**✋ Motorik & Kreasi** — Ayo Menulis (menebalkan huruf/angka dengan jari, dinilai
-otomatis), Menggambar (warna, kuas, stempel), Pecah Balon, Sentuh & Dengar (untuk balita),
-Piano & Ingat Nada (melatih memori urutan).
+**🎨 Motorik & Kreasi** — Menggambar (warna, kuas, stempel), Pecah Balon (semua balon →
+warna → huruf → angka → hitungan), Sentuh & Dengar (untuk balita), Piano Hewan.
 
 **🧠 Logika & Pengetahuan** — Kenal Warna, Kenal Bentuk, Kenal Hewan (suara & teka-teki),
-Tebak Bayangan, Kartu Memori, Lanjutkan Pola.
+Tebak Bayangan, Kartu Memori, Lanjutkan Pola, Ingat Nada (melatih memori urutan).
 
 ## Mendapatkan APK
 
