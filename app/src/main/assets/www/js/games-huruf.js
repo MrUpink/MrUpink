@@ -1,12 +1,13 @@
 'use strict';
-/* Permainan huruf & membaca. */
+/* Permainan huruf & membaca.
+ * ctx.d = tingkat kesulitan 1–10 (gabungan umur anak + level yang dipilih). */
 
 function firstHighlighted(word) {
   return h('span', null, h('b', { class: 'first' }, word.charAt(0)), word.slice(1));
 }
 
 registerGame({
-  id: 'kenal-huruf', cat: 'huruf', title: 'Kenal Huruf', icon: '🔤', color: '#ff8787', ages: [1, 2],
+  id: 'kenal-huruf', cat: 'huruf', title: 'Kenal Huruf', icon: '🔤', color: '#ff8787', minAge: 1, maxAge: 6, levels: 0,
   start(ctx) {
     const show = h('div', { class: 'letter-show' });
     const grid = h('div', { class: 'letter-grid' });
@@ -20,7 +21,8 @@ registerGame({
       show.classList.remove('pop');
       void show.offsetWidth;
       show.classList.add('pop');
-      speak(`${L.l}. ${L.l}, untuk ${L.w}`);
+      // Huruf hanya dibaca satu kali, lalu contoh katanya.
+      speak(`${sayLetter(L.l)}. ${L.w}.`);
     }
     LETTERS.forEach((L, i) => {
       grid.append(h('button', {
@@ -34,7 +36,7 @@ registerGame({
 });
 
 registerGame({
-  id: 'suku-kata', cat: 'huruf', title: 'Belajar Suku Kata', icon: '🗣️', color: '#f783ac', ages: [2, 3],
+  id: 'suku-kata', cat: 'huruf', title: 'Belajar Suku Kata', icon: '🗣️', color: '#f783ac', minAge: 4, maxAge: 8, levels: 0,
   start(ctx) {
     const consonants = 'BCDFGHJKLMNPRSTWY'.split('');
     const vowels = ['A', 'I', 'U', 'E', 'O'];
@@ -49,7 +51,7 @@ registerGame({
       syls.forEach((s, i) => {
         grid.append(h('button', {
           class: 'tile', style: { background: PALETTE[(i * 2) % PALETTE.length] },
-          onClick: () => { Sound.tap(); speak(s.toLowerCase()); },
+          onClick: () => { Sound.tap(); speak(saySyllable(s)); },
         }, s));
       });
       const examples = WORDS.filter((w) => w.syl[0].length === 2 && w.syl[0][0] === c).slice(0, 3);
@@ -59,7 +61,7 @@ registerGame({
         sample.append(h('div', { class: 'q-row' }, examples.map((w) =>
           h('button', { class: 'chip', onClick: () => speak(w.name) }, w.e + ' ' + w.syl.join('-')))));
       }
-      speak(syls.map((s) => s.toLowerCase()).join(', '));
+      speak(syls.map(saySyllable).join(', '));
     }
     consonants.forEach((c) => {
       const b = h('button', { class: 'chip' }, c);
@@ -71,27 +73,42 @@ registerGame({
   },
 });
 
+const CONFUSABLE = [['b', 'd', 'p', 'q'], ['m', 'n', 'u', 'w'], ['E', 'F', 'P', 'B'], ['O', 'Q', 'C', 'G'], ['i', 'j', 'l', 't'], ['M', 'N', 'W', 'V']];
+
 registerGame({
-  id: 'cari-huruf', cat: 'huruf', title: 'Cari Huruf', icon: '🔍', color: '#ffa94d', ages: [1, 2],
+  id: 'cari-huruf', cat: 'huruf', title: 'Cari Huruf', icon: '🔍', color: '#ffa94d', minAge: 2, maxAge: 7,
   start(ctx) {
-    const lv = ctx.level;
-    const pool = LETTERS.map((x) => x.l);
+    const d = ctx.d;
+    const poolSize = D(d, 5, 8, 12, 16, 20, 26, 26, 26, 26, 26);
+    const pool = LETTERS.slice(0, poolSize).map((x) => x.l);
     const next = makeBag(pool);
+    const nOpt = D(d, 2, 3, 3, 4, 4, 4, 6, 6, 6, 6);
     runRounds(ctx, {
       round(area, api) {
-        const ans = next();
-        const lower = lv === 3 && Math.random() < 0.6;
-        const disp = (x) => (lower ? x.toLowerCase() : x);
-        const say = lv === 1 ? `Cari huruf ${ans}` : `Mana huruf ${lower ? 'kecil ' : ''}${ans}?`;
-        const prompt = lv === 1
+        let ans = next();
+        let opts;
+        let lower = d >= 5 && Math.random() < (d >= 7 ? 0.7 : 0.4);
+        if (d >= 8 && Math.random() < 0.5) {
+          // Huruf yang mirip bentuknya
+          const grp = R.pick(CONFUSABLE);
+          ans = R.pick(grp);
+          lower = ans === ans.toLowerCase();
+          opts = R.shuffle(grp);
+        } else {
+          opts = optionsWith(ans, pool, nOpt).map((x) => (lower ? x.toLowerCase() : x));
+          if (lower) ans = ans.toLowerCase();
+        }
+        const match = d <= 2;
+        const say = match ? `Cari huruf ${sayLetter(ans)}` : `Mana huruf ${lower ? 'kecil ' : ''}${sayLetter(ans)}?`;
+        const prompt = match
           ? h('div', null, h('div', { class: 'q-text' }, 'Cari huruf yang sama:'), h('div', { class: 'q-big' }, ans))
           : h('div', null, h('div', { class: 'q-text' }, lower ? 'Dengarkan, lalu cari huruf kecilnya!' : 'Dengarkan, lalu cari hurufnya!'), h('div', { class: 'q-big' }, '👂'));
         choiceRound(area, api, {
-          prompt, say,
-          options: optionsWith(ans, pool, [3, 4, 6][lv - 1]),
-          render: (x) => disp(x),
+          prompt, say, options: opts,
+          render: (x) => x,
           isCorrect: (x) => x === ans,
-          sayCorrect: ans,
+          sayCorrect: sayLetter(ans),
+          cols: opts.length === 2 ? 2 : opts.length === 4 ? 2 : 3,
         });
       },
     });
@@ -99,9 +116,9 @@ registerGame({
 });
 
 registerGame({
-  id: 'huruf-awal', cat: 'huruf', title: 'Huruf Awal', icon: '🅰️', color: '#ff922b', ages: [2, 3],
+  id: 'huruf-awal', cat: 'huruf', title: 'Huruf Awal', icon: '🅰️', color: '#ff922b', minAge: 4, maxAge: 8,
   start(ctx) {
-    const lv = ctx.level;
+    const d = ctx.d;
     const items = LETTERS.filter((L) => !'QX'.includes(L.l)).map((L) => ({ w: L.w.toUpperCase(), e: L.e, name: L.w }))
       .concat(WORDS.map((w) => ({ w: w.w, e: w.e, name: w.name })));
     const next = makeBag(items);
@@ -110,14 +127,15 @@ registerGame({
       round(area, api) {
         const it = next();
         const ans = it.w[0];
-        const word = lv === 1 ? firstHighlighted(it.w) : h('span', null, h('b', { class: 'first' }, '_'), it.w.slice(1));
+        // d rendah: kata ditampilkan dengan huruf awal disorot; sedang: huruf awal disembunyikan; tinggi: hanya gambar.
+        const word = d <= 3 ? firstHighlighted(it.w) : d <= 7 ? h('span', null, h('b', { class: 'first' }, '_'), it.w.slice(1)) : null;
         choiceRound(area, api, {
-          prompt: h('div', null, h('div', { class: 'q-emoji' }, it.e), lv < 3 || Math.random() < 0.5 ? h('div', { class: 'q-word' }, word) : null),
-          say: `${it.name}. ${it.name} dimulai dengan huruf apa?`,
-          options: optionsWith(ans, pool, [3, 4, 4][lv - 1]),
+          prompt: h('div', null, h('div', { class: 'q-emoji' }, it.e), word ? h('div', { class: 'q-word' }, word) : null),
+          say: `${it.name}. ${it.name}, dimulai dengan huruf apa?`,
+          options: optionsWith(ans, pool, D(d, 3, 3, 4, 4, 4, 4, 6, 6, 6, 6)),
           render: (x) => x,
           isCorrect: (x) => x === ans,
-          sayCorrect: `${ans}, ${it.name}`,
+          sayCorrect: `${sayLetter(ans)}, ${it.name}`,
         });
       },
     });
@@ -139,12 +157,12 @@ function buildWordRound(area, api, item, units, distractors, hint, speakUnit) {
       if (b.classList.contains('used') || pos >= units.length) return;
       if (u === units[pos]) {
         Sound.tap();
-        speak(speakUnit ? speakUnit(u) : u.toLowerCase());
+        speak(speakUnit(u));
         slotEls[pos].textContent = u;
         slotEls[pos].classList.add('filled');
         b.classList.add('used');
         pos++;
-        if (pos === units.length) api.correct(prompt, units.length > 1 ? `${units.join(' ').toLowerCase()}. ${item.name}` : item.name);
+        if (pos === units.length) api.correct(prompt, item.name);
       } else {
         api.wrong(b, true);
       }
@@ -152,53 +170,74 @@ function buildWordRound(area, api, item, units, distractors, hint, speakUnit) {
     tiles.append(b);
   });
   area.append(prompt, tiles);
-  speak(`Susun kata ${item.name}`);
+  speak(`Ayo susun kata, ${item.name}.`);
 }
 
 registerGame({
-  id: 'susun-huruf', cat: 'huruf', title: 'Susun Huruf', icon: '🧩', color: '#fab005', ages: [2, 3],
+  id: 'susun-huruf', cat: 'huruf', title: 'Susun Huruf', icon: '🧩', color: '#fab005', minAge: 5, maxAge: 10,
   start(ctx) {
-    const lv = ctx.level;
-    const next = makeBag(wordsForLevel(lv));
+    const d = ctx.d;
+    const [mn, mx] = D(d, [3, 4], [3, 4], [4, 4], [4, 5], [5, 5], [5, 6], [6, 6], [6, 7], [7, 9], [7, 10]);
+    const next = makeBag(wordsByLen(mn, mx));
+    const hint = d <= 4;
+    const extra = D(d, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3);
     runRounds(ctx, {
       round(area, api) {
         const item = next();
         const letters = item.w.split('');
-        const extra = lv === 3 ? R.sample(LETTERS.map((x) => x.l).filter((l) => !letters.includes(l)), 2) : [];
-        buildWordRound(area, api, item, letters, extra, lv < 3, (u) => u);
+        const distract = R.sample(LETTERS.map((x) => x.l).filter((l) => !letters.includes(l)), extra);
+        buildWordRound(area, api, item, letters, distract, hint, sayLetter);
       },
     });
   },
 });
 
 registerGame({
-  id: 'susun-suku', cat: 'huruf', title: 'Susun Suku Kata', icon: '🧱', color: '#e599f7', ages: [2, 3],
+  id: 'susun-suku', cat: 'huruf', title: 'Susun Suku Kata', icon: '🧱', color: '#e599f7', minAge: 4, maxAge: 9,
   start(ctx) {
-    const lv = ctx.level;
-    const next = makeBag(wordsForLevel(lv).filter((w) => w.syl.length >= 2));
-    const allSyl = [...new Set(WORDS.flatMap((w) => w.syl))];
-    runRounds(ctx, {
-      round(area, api) {
-        const item = next();
-        const extra = lv >= 2 ? R.sample(allSyl.filter((s) => !item.syl.includes(s)), lv === 3 ? 3 : 1) : [];
-        buildWordRound(area, api, item, item.syl, extra, lv === 1);
-      },
-    });
-  },
-});
-
-registerGame({
-  id: 'baca-kata', cat: 'huruf', title: 'Ayo Membaca', icon: '📖', color: '#4dabf7', ages: [2, 3],
-  start(ctx) {
-    const lv = ctx.level;
-    const list = wordsForLevel(lv);
+    const d = ctx.d;
+    const [mn, mx] = D(d, [3, 4], [3, 4], [4, 5], [4, 6], [5, 6], [5, 7], [6, 8], [6, 9], [7, 10], [7, 10]);
+    const list = wordsByLen(mn, mx).filter((w) => w.syl.length >= 2);
     const next = makeBag(list);
+    const allSyl = [...new Set(WORDS.flatMap((w) => w.syl))];
+    const extra = D(d, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3);
     runRounds(ctx, {
       round(area, api) {
         const item = next();
-        const n = lv === 1 ? 3 : 4;
+        const distract = R.sample(allSyl.filter((s) => !item.syl.includes(s)), extra);
+        buildWordRound(area, api, item, item.syl, distract, d <= 2, saySyllable);
+      },
+    });
+  },
+});
+
+registerGame({
+  id: 'baca-kata', cat: 'huruf', title: 'Ayo Membaca', icon: '📖', color: '#4dabf7', minAge: 5, maxAge: 10,
+  start(ctx) {
+    const d = ctx.d;
+    const [mn, mx] = D(d, [3, 4], [3, 4], [4, 5], [4, 6], [5, 6], [5, 7], [6, 10], [6, 10], [6, 10], [6, 10]);
+    const list = wordsByLen(mn, mx);
+    const next = makeBag(list);
+    const nextSentence = makeBag(SENTENCES);
+    const n = D(d, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4);
+    runRounds(ctx, {
+      round(area, api) {
+        if (d >= 8 && Math.random() < (d >= 9 ? 0.8 : 0.5)) {
+          // Membaca kalimat
+          const s = nextSentence();
+          choiceRound(area, api, {
+            prompt: h('div', null, h('div', { class: 'q-text' }, 'Baca kalimat ini, lalu pilih gambarnya:'), h('div', { class: 'q-sentence' }, s.t)),
+            helpSay: s.t,
+            options: optionsWith(s, SENTENCES, 4, (x) => x.e), cols: 2,
+            render: (x) => h('div', { class: 'grp' }, x.e),
+            isCorrect: (x) => x === s,
+            sayCorrect: s.t,
+          });
+          return;
+        }
+        const item = next();
         const options = optionsWith(item, list, n, (x) => x.e);
-        if (lv === 3 && Math.random() < 0.5) {
+        if (d >= 6 && Math.random() < 0.5) {
           // Lihat gambar, pilih tulisan yang benar
           choiceRound(area, api, {
             prompt: h('div', null, h('div', { class: 'q-text' }, 'Tulisan mana yang benar?'), h('div', { class: 'q-emoji' }, item.e)),
@@ -209,10 +248,11 @@ registerGame({
           });
           return;
         }
+        const easy = d <= 3;
         choiceRound(area, api, {
-          prompt: h('div', null, h('div', { class: 'q-text' }, 'Baca kata ini, lalu pilih gambarnya:'), h('div', { class: 'q-word' }, lv === 1 ? item.syl.join('-') : item.w)),
-          say: lv === 1 ? item.name : null,
-          helpSay: lv === 1 ? null : item.name,
+          prompt: h('div', null, h('div', { class: 'q-text' }, 'Baca kata ini, lalu pilih gambarnya:'), h('div', { class: 'q-word' }, easy ? item.syl.join('-') : item.w)),
+          say: easy ? item.name : null,
+          helpSay: easy ? null : item.name,
           options, cols: n === 4 ? 2 : 3,
           render: (x) => x.e,
           isCorrect: (x) => x === item,

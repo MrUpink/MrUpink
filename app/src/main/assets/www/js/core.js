@@ -3,14 +3,23 @@
 
 const Store = (() => {
   const KEY = 'pintarceria.v1';
-  const defaults = { stars: 0, age: 1, sound: true, voice: true };
+  const defaults = { stars: 0, age: 0, sound: true, voice: true, voiceName: '', rate: 0.95, progress: {} };
   let data = Object.assign({}, defaults);
   try { Object.assign(data, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* abaikan */ }
+  if (typeof data.age !== 'number' || data.age > 10) data.age = 0; // format lama (1–3) → minta pilih ulang
+  if (!data.progress || typeof data.progress !== 'object') data.progress = {};
   function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* abaikan */ } }
   return {
     get: (k) => data[k],
     set(k, v) { data[k] = v; save(); },
-    reset() { data.stars = 0; save(); },
+    reset() { data.stars = 0; data.progress = {}; save(); },
+    /* Progres level per umur & permainan: { unlocked, best: {level: bintang} } */
+    progress(gameId) {
+      const k = data.age + ':' + gameId;
+      if (!data.progress[k]) data.progress[k] = { unlocked: 1, best: {} };
+      return data.progress[k];
+    },
+    saveProgress: save,
   };
 })();
 
@@ -53,16 +62,52 @@ const Sound = (() => {
   };
 })();
 
+/* ---------- Pemandu suara ----------
+ * Di Android memakai mesin TTS HP (lewat window.AndroidTTS), di browser memakai Web Speech.
+ * Suara Bahasa Indonesia dengan kualitas tertinggi dipilih otomatis; orang tua bisa
+ * menggantinya di Pengaturan.
+ */
 const Voice = (() => {
-  let voice = null;
-  function pickVoice() {
+  let webVoices = [];
+  let webVoice = null;
+
+  function scoreWeb(v) {
+    let s = 0;
+    if (/natural|neural|online|premium|enhanced|wavenet/i.test(v.name)) s += 10;
+    if (/google/i.test(v.name)) s += 5;
+    if (v.localService === false) s += 2;
+    return s;
+  }
+  function loadWeb() {
     const vs = window.speechSynthesis ? speechSynthesis.getVoices() : [];
-    voice = vs.find((v) => /^(id|in)([-_]|$)/i.test(v.lang)) || null;
+    webVoices = vs.filter((v) => /^(id|in)([-_]|$)/i.test(v.lang)).sort((a, b) => scoreWeb(b) - scoreWeb(a));
+    const saved = Store.get('voiceName');
+    webVoice = webVoices.find((v) => v.name === saved) || webVoices[0] || null;
   }
-  if (window.speechSynthesis) {
-    pickVoice();
-    speechSynthesis.onvoiceschanged = pickVoice;
+  if (!window.AndroidTTS && window.speechSynthesis) {
+    loadWeb();
+    speechSynthesis.onvoiceschanged = loadWeb;
   }
+
+  function list() {
+    if (window.AndroidTTS) {
+      try { return JSON.parse(window.AndroidTTS.voices() || '[]'); } catch (e) { return []; }
+    }
+    return webVoices.map((v) => ({ name: v.name, label: v.name + (v.localService === false ? ' (online)' : '') }));
+  }
+  function current() {
+    if (window.AndroidTTS) { try { return window.AndroidTTS.currentVoice(); } catch (e) { return ''; } }
+    return webVoice ? webVoice.name : '';
+  }
+  function choose(name) {
+    Store.set('voiceName', name);
+    if (window.AndroidTTS) { try { window.AndroidTTS.setVoice(name); } catch (e) { /* abaikan */ } }
+    else webVoice = webVoices.find((v) => v.name === name) || webVoice;
+  }
+  function applyRate() {
+    if (window.AndroidTTS) { try { window.AndroidTTS.setRate(Store.get('rate')); } catch (e) { /* abaikan */ } }
+  }
+
   function speak(text) {
     if (!Store.get('voice') || !text) return;
     text = String(text);
@@ -73,18 +118,43 @@ const Voice = (() => {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'id-ID';
-    if (voice) u.voice = voice;
-    u.rate = 0.9;
-    u.pitch = 1.15;
+    if (webVoice) u.voice = webVoice;
+    u.rate = Store.get('rate');
+    u.pitch = 1.05;
     speechSynthesis.speak(u);
   }
   function stop() {
     if (window.AndroidTTS) { try { window.AndroidTTS.stop(); } catch (e) { /* abaikan */ } }
     else if (window.speechSynthesis) speechSynthesis.cancel();
   }
-  return { speak, stop };
+  function init() {
+    if (window.AndroidTTS) {
+      const saved = Store.get('voiceName');
+      if (saved) { try { window.AndroidTTS.setVoice(saved); } catch (e) { /* abaikan */ } }
+      applyRate();
+    }
+  }
+  return { speak, stop, list, current, choose, applyRate, init };
 })();
 const speak = Voice.speak;
+
+/* ---------- Pelafalan ----------
+ * Mesin TTS sering salah membaca huruf/suku kata yang berdiri sendiri (mis. "ca" dibaca "ka"),
+ * karena dianggap singkatan atau kata asing. Tabel di bawah memberi ejaan yang dibaca benar.
+ */
+const LETTER_SAY = {
+  A: 'a', B: 'bé', C: 'cé', D: 'dé', E: 'é', F: 'ef', G: 'gé', H: 'ha', I: 'i', J: 'jé', K: 'ka', L: 'el', M: 'em',
+  N: 'en', O: 'o', P: 'pé', Q: 'ki', R: 'er', S: 'es', T: 'té', U: 'u', V: 'vé', W: 'wé', X: 'eks', Y: 'yé', Z: 'zet',
+};
+/* Nama huruf untuk diucapkan (satu kali saja, besar/kecil sama bunyinya). */
+function sayLetter(ch) { return LETTER_SAY[String(ch).toUpperCase()] || ch; }
+
+/* Suku kata terbuka (berakhir vokal) diberi "h" lembut agar dibaca sebagai suku kata
+ * Indonesia: "ca" → "cah" (bukan "ka"), "bi" → "bih". */
+function saySyllable(s) {
+  s = String(s).toLowerCase();
+  return /[aiueo]$/.test(s) && s.length <= 3 ? s + 'h' : s;
+}
 
 /* ---------- Utilitas ---------- */
 function h(tag, props, ...kids) {
@@ -97,8 +167,7 @@ function h(tag, props, ...kids) {
         if (sk.startsWith('--')) e.style.setProperty(sk, sv);
         else e.style[sk] = sv;
       }
-    }
-    else if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2).toLowerCase(), v);
+    } else if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2).toLowerCase(), v);
     else if (k === 'html') e.innerHTML = v;
     else e.setAttribute(k, v === true ? '' : v);
   }
@@ -122,6 +191,13 @@ const R = {
   },
   sample: (a, n) => R.shuffle(a).slice(0, n),
 };
+
+/* Nilai bertingkat menurut tingkat kesulitan d (1–10):
+ * D(d, a, b, c) → a untuk d 1–3, b untuk d 4–6, c untuk d 7–10 (dibagi rata). */
+function D(d, ...vals) {
+  const i = Math.min(vals.length - 1, Math.floor(((Math.max(1, Math.min(10, d)) - 1) * vals.length) / 10));
+  return vals[i];
+}
 
 /* Mengambil item acak tanpa mengulang sampai semua sudah keluar. */
 function makeBag(items) {
@@ -164,8 +240,8 @@ function numOptions(ans, n, min = 0, max = 100) {
   return [...set].sort((a, b) => a - b);
 }
 
-const PRAISE = ['Hebat!', 'Pintar!', 'Bagus sekali!', 'Luar biasa!', 'Keren!', 'Mantap!', 'Betul sekali!'];
-const RETRY = ['Coba lagi ya', 'Ayo coba lagi', 'Hampir benar, coba lagi'];
+const PRAISE = ['Hebat!', 'Pintar sekali!', 'Wah, bagus!', 'Luar biasa!', 'Keren!', 'Betul, mantap!', 'Kamu hebat!'];
+const RETRY = ['Hmm, coba lagi ya.', 'Belum tepat, ayo coba lagi.', 'Hampir! Coba sekali lagi.'];
 const PALETTE = ['#ff6b6b', '#ffa94d', '#fcc419', '#51cf66', '#20c997', '#4dabf7', '#748ffc', '#da77f2', '#f783ac'];
 
 function shake(node) {
@@ -199,8 +275,11 @@ function floatStar(node) {
   setTimeout(() => s.remove(), 1100);
 }
 
+/* Bintang level (1–3) dari rasio jawaban benar pada percobaan pertama. */
+function starsFromRatio(r) { return r >= 0.9 ? 3 : r >= 0.6 ? 2 : 1; }
+
 /* ---------- Kerangka ronde ----------
- * ctx    : konteks dari App (stage, level, later, addStar, finish, dead)
+ * ctx    : konteks dari App (stage, d, later, addStar, finish, dead)
  * total  : jumlah ronde
  * round  : function(area, api) — menggambar satu soal.
  *          api.correct(node, sayText) & api.wrong(node, silent)
@@ -212,24 +291,25 @@ function runRounds(ctx, { total = 10, round }) {
   const area = h('div', { class: 'round' });
   stage.append(h('div', { class: 'progress' }, fill), area);
   let i = 0;
-  let stars = 0;
+  let firstTry = 0;
 
   function next() {
     if (ctx.dead) return;
     fill.style.width = (i / total) * 100 + '%';
-    if (i >= total) { ctx.finish(stars, total); return; }
+    if (i >= total) { ctx.finish(starsFromRatio(firstTry / total)); return; }
     area.innerHTML = '';
     area.classList.remove('enter');
     void area.offsetWidth;
     area.classList.add('enter');
     let done = false;
+    let missed = false;
     const api = {
       index: i,
       correct(node, sayText) {
         if (done) return;
         done = true;
         i++;
-        stars++;
+        if (!missed) firstTry++;
         fill.style.width = (i / total) * 100 + '%';
         if (node) node.classList.add('good');
         if (api.onDone) api.onDone();
@@ -237,10 +317,11 @@ function runRounds(ctx, { total = 10, round }) {
         floatStar(node);
         ctx.addStar(1);
         speak((sayText ? sayText + '. ' : '') + R.pick(PRAISE));
-        ctx.later(next, sayText ? 1900 : 1300);
+        ctx.later(next, sayText ? 2000 : 1400);
       },
       wrong(node, silent) {
         if (done) return;
+        missed = true;
         Sound.wrong();
         if (node) shake(node);
         if (!silent) speak(R.pick(RETRY));
@@ -267,6 +348,8 @@ function choiceRound(area, api, opt) {
   if (say) speak(say);
 }
 
-/* ---------- Registrasi permainan ---------- */
+/* ---------- Registrasi permainan ----------
+ * { id, cat, title, icon, color, minAge, maxAge, levels (0 = mode jelajah), start(ctx) }
+ */
 const GAMES = [];
-function registerGame(g) { GAMES.push(g); }
+function registerGame(g) { GAMES.push(Object.assign({ levels: 5 }, g)); }

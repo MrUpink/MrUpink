@@ -22,7 +22,7 @@ const WORDS = [
   'GI-TAR|🎸', 'KUN-CI|🔑', 'KA-TAK|🐸', 'RU-BAH|🦊', 'BU-NGA|🌸', 'SE-PA-TU|👟', 'KU-CING|🐱',
   'PI-SANG|🍌', 'KE-RE-TA|🚆', 'SE-PE-DA|🚲', 'JA-GUNG|🌽', 'PA-YUNG|☂️', 'GU-NUNG|⛰️', 'BU-RUNG|🐦',
   'KE-LIN-CI|🐰', 'HA-RI-MAU|🐯', 'PE-SA-WAT|✈️', 'BIN-TANG|⭐', 'MA-TA-HA-RI|☀️', 'SE-MANG-KA|🍉',
-  'ANG-GUR|🍇', 'PE-LA-NGI|🌈', 'JE-RA-PAH|🦒', 'PING-GU-IN|🐧', 'STRO-BE-RI|🍓', 'BRO-KO-LI|🥦',
+  'ANG-GUR|🍇', 'PE-LA-NGI|🌈', 'JE-RA-PAH|🦒', 'PEN-GU-IN|🐧', 'STRO-BE-RI|🍓', 'BRO-KO-LI|🥦',
   'KA-ME-RA|📷', 'TE-LE-PON|☎️', 'KE-PI-TING|🦀', 'KE-LA-PA|🥥', 'BO-NE-KA|🪆', 'KU-RA-KU-RA|🐢',
 ].map((s) => {
   const [syl, e] = s.split('|');
@@ -31,10 +31,9 @@ const WORDS = [
   return { w, e, syl: parts, name: w.charAt(0) + w.slice(1).toLowerCase() };
 });
 
-function wordsForLevel(level) {
-  if (level === 1) return WORDS.filter((x) => x.w.length <= 4);
-  if (level === 2) return WORDS.filter((x) => x.w.length >= 4 && x.w.length <= 6);
-  return WORDS.filter((x) => x.w.length >= 5);
+/* Kata dengan panjang huruf di antara min dan max. */
+function wordsByLen(min, max) {
+  return WORDS.filter((x) => x.w.length >= min && x.w.length <= max);
 }
 
 const COLORS = [
@@ -118,3 +117,16 @@ const COUNTABLES = [
 const OBJECTS = ['🍎', '🍌', '🍇', '🍓', '🍉', '🍒', '🥕', '🌽', '🚗', '🚲', '✈️', '🚀', '⚽', '🏀', '🎈', '🎁', '⭐', '🌙', '☀️', '🌈', '🐱', '🐶', '🐰', '🐻', '🐸', '🐵', '🦁', '🐘', '🦒', '🐢', '🐟', '🦋', '🐞', '🌸', '🌻', '🍄', '🏠', '⏰', '🔑', '✏️'];
 
 const SHADOW_ITEMS = ['🐘', '🦒', '🐢', '🐇', '🦋', '🐟', '🐌', '🦀', '🐓', '🦆', '🐈', '🐕', '🐄', '🐎', '🦁', '🐪', '✈️', '🚲', '🚗', '🚂', '🏠', '🌳', '🍎', '🍌', '🍐', '☂️', '⏰', '🎸', '🔑', '✂️', '🚀', '⛵', '🦕', '🐿️', '🦔'];
+
+/* Kalimat sederhana untuk latihan membaca (umur lebih besar). */
+const SENTENCES = [
+  { t: 'Kucing minum susu', e: '🐱🥛' }, { t: 'Adik makan apel', e: '👶🍎' },
+  { t: 'Ayah naik sepeda', e: '👨🚲' }, { t: 'Ibu memasak nasi', e: '👩🍚' },
+  { t: 'Bola di atas meja', e: '⚽⬆️' }, { t: 'Burung terbang tinggi', e: '🐦☁️' },
+  { t: 'Ikan berenang di laut', e: '🐟🌊' }, { t: 'Kakak membaca buku', e: '👧📖' },
+  { t: 'Hari ini hujan deras', e: '🌧️☔' }, { t: 'Matahari bersinar terang', e: '☀️😎' },
+  { t: 'Anjing mengejar bola', e: '🐶⚽' }, { t: 'Kami pergi ke sekolah', e: '🎒🏫' },
+  { t: 'Monyet makan pisang', e: '🐒🍌' }, { t: 'Bunga mekar di taman', e: '🌸🌳' },
+  { t: 'Kereta melaju cepat', e: '🚆💨' }, { t: 'Adik tidur di kasur', e: '👶🛏️' },
+  { t: 'Kelinci makan wortel', e: '🐰🥕' }, { t: 'Pesawat di langit malam', e: '✈️🌙' },
+];

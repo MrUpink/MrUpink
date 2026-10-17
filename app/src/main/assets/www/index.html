@@ -8,8 +8,8 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <!-- Layar utama -->
-  <section id="home" class="screen active">
+  <!-- 1. Dashboard awal: pilih umur -->
+  <section id="screen-age" class="screen active">
     <header class="home-header">
       <div class="brand">
         <span class="brand-logo">🦉</span>
@@ -19,29 +19,63 @@
         </div>
       </div>
       <div class="header-right">
-        <div class="star-count" title="Bintang"><span>⭐</span><b id="home-stars">0</b></div>
-        <button class="icon-btn" id="btn-settings" aria-label="Pengaturan">⚙️</button>
+        <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
+        <button class="icon-btn btn-settings" aria-label="Pengaturan">⚙️</button>
       </div>
     </header>
-
-    <div class="age-box">
-      <span class="age-label">Umur anak:</span>
-      <div class="age-chips" id="age-chips">
-        <button data-age="1">👶 1–3 th</button>
-        <button data-age="2">🧒 4–6 th</button>
-        <button data-age="3">🧑‍🎓 7–10 th</button>
-      </div>
+    <div class="scroll">
+      <h2 class="screen-title">Berapa umurmu? 🎂</h2>
+      <p class="screen-sub">Pilih umur anak. Pelajaran & tingkat kesulitan akan menyesuaikan.</p>
+      <div class="age-grid" id="age-grid"></div>
     </div>
-
-    <main id="menu"></main>
   </section>
 
-  <!-- Layar permainan -->
-  <section id="play" class="screen">
+  <!-- 2. Pilih kategori belajar -->
+  <section id="screen-cat" class="screen">
     <header class="topbar">
-      <button class="icon-btn" id="btn-back" aria-label="Kembali">⬅️</button>
+      <button class="icon-btn" data-back aria-label="Kembali">⬅️</button>
+      <button class="age-pill" id="age-pill" aria-label="Ganti umur"></button>
+      <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
+      <button class="icon-btn btn-settings" aria-label="Pengaturan">⚙️</button>
+    </header>
+    <div class="scroll">
+      <h2 class="screen-title">Mau belajar apa hari ini?</h2>
+      <div class="cat-grid" id="cat-grid"></div>
+    </div>
+  </section>
+
+  <!-- 3. Daftar permainan dalam kategori -->
+  <section id="screen-games" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" data-back aria-label="Kembali">⬅️</button>
+      <h2 id="games-title"></h2>
+      <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
+    </header>
+    <div class="scroll">
+      <div class="cards" id="games-grid"></div>
+    </div>
+  </section>
+
+  <!-- 4. Pilih level -->
+  <section id="screen-level" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" data-back aria-label="Kembali">⬅️</button>
+      <h2 id="level-title"></h2>
+      <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
+    </header>
+    <div class="scroll">
+      <h2 class="screen-title">Pilih Level</h2>
+      <p class="screen-sub" id="level-sub"></p>
+      <div class="level-grid" id="level-grid"></div>
+    </div>
+  </section>
+
+  <!-- 5. Bermain -->
+  <section id="screen-play" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" data-back aria-label="Kembali">⬅️</button>
       <h2 id="play-title">Permainan</h2>
-      <div class="star-count"><span>⭐</span><b id="play-stars">0</b></div>
+      <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
     </header>
     <div id="stage"></div>
   </section>
@@ -50,11 +84,12 @@
   <div id="reward" class="overlay hidden">
     <div class="modal reward-modal">
       <div class="trophy">🏆</div>
-      <h2>Hebat Sekali!</h2>
-      <p id="reward-text"></p>
+      <h2 id="reward-title">Hebat Sekali!</h2>
       <div class="reward-stars" id="reward-stars"></div>
+      <p id="reward-text"></p>
       <div class="modal-actions">
-        <button class="btn btn-green" id="btn-again">🔁 Main Lagi</button>
+        <button class="btn btn-green" id="btn-next">▶ Level Berikutnya</button>
+        <button class="btn btn-yellow" id="btn-again">🔁 Ulangi</button>
         <button class="btn btn-blue" id="btn-menu">🏠 Menu</button>
       </div>
     </div>
@@ -62,17 +97,30 @@
 
   <!-- Pengaturan -->
   <div id="settings" class="overlay hidden">
-    <div class="modal">
+    <div class="modal settings-modal">
       <h2>⚙️ Pengaturan</h2>
       <label class="toggle"><input type="checkbox" id="set-sound"> <span>🎵 Efek suara</span></label>
       <label class="toggle"><input type="checkbox" id="set-voice"> <span>🗣️ Suara pemandu</span></label>
-      <div class="parent-info">
-        <b>Untuk Orang Tua</b>
-        <p>Pilih umur anak agar tingkat kesulitan menyesuaikan. Permainan bertanda ⭐ Cocok paling sesuai untuk umur tersebut. Dampingi anak dan batasi waktu layar sekitar 15–30 menit per sesi.</p>
+      <div class="field">
+        <label for="set-voice-name">Pilih suara pemandu</label>
+        <select id="set-voice-name"></select>
+        <p class="hint" id="voice-hint"></p>
+      </div>
+      <div class="field">
+        <label for="set-rate">Kecepatan bicara</label>
+        <input type="range" id="set-rate" min="0.7" max="1.2" step="0.05">
       </div>
       <div class="modal-actions">
-        <button class="btn btn-red" id="btn-reset">🗑️ Reset Bintang</button>
-        <button class="btn btn-blue" id="btn-close-settings">Tutup</button>
+        <button class="btn btn-blue btn-small" id="btn-test-voice">🔊 Tes Suara</button>
+        <button class="btn btn-yellow btn-small hidden" id="btn-tts-settings">📥 Unduh Suara</button>
+      </div>
+      <div class="parent-info">
+        <b>Untuk Orang Tua</b>
+        <p>Pilih umur anak di halaman awal. Setiap permainan punya beberapa level yang terbuka bertahap. Suara paling natural biasanya bertanda "Kualitas tinggi". Dampingi anak dan batasi waktu layar 15–30 menit per sesi.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-red btn-small" id="btn-reset">🗑️ Reset Progres</button>
+        <button class="btn btn-green" id="btn-close-settings">Tutup</button>
       </div>
     </div>
   </div>

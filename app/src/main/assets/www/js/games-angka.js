@@ -1,14 +1,14 @@
 'use strict';
-/* Permainan angka & berhitung. */
+/* Permainan angka & berhitung. ctx.d = tingkat kesulitan 1–10. */
 
 function emojiRow(e, n, fadedFrom = Infinity) {
   return h('div', { class: 'q-row' }, Array.from({ length: n }, (_, i) => h('span', { class: i >= fadedFrom ? 'faded' : null }, e)));
 }
 
 registerGame({
-  id: 'kenal-angka', cat: 'angka', title: 'Kenal Angka', icon: '🔢', color: '#69db7c', ages: [1, 2],
+  id: 'kenal-angka', cat: 'angka', title: 'Kenal Angka', icon: '🔢', color: '#69db7c', minAge: 1, maxAge: 6, levels: 0,
   start(ctx) {
-    const max = ctx.level === 1 ? 10 : 20;
+    const max = ctx.age <= 3 ? 10 : 20;
     const show = h('div', { class: 'letter-show' });
     const grid = h('div', { class: 'letter-grid' });
     function display(n) {
@@ -38,10 +38,11 @@ registerGame({
 });
 
 registerGame({
-  id: 'berhitung', cat: 'angka', title: 'Ayo Berhitung', icon: '🍎', color: '#ff6b6b', ages: [1, 2],
+  id: 'berhitung', cat: 'angka', title: 'Ayo Menghitung', icon: '🍎', color: '#ff6b6b', minAge: 1, maxAge: 7,
   start(ctx) {
-    const lv = ctx.level;
-    const [min, max] = [[1, 5], [1, 10], [6, 20]][lv - 1];
+    const d = ctx.d;
+    const [min, max] = D(d, [1, 3], [1, 5], [2, 6], [3, 8], [1, 10], [5, 12], [8, 15], [10, 20], [12, 20], [15, 25]);
+    const nOpt = D(d, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4);
     runRounds(ctx, {
       round(area, api) {
         const n = R.int(min, max);
@@ -62,11 +63,11 @@ registerGame({
         choiceRound(area, api, {
           prompt: h('div', null, h('div', { class: 'q-text' }, `Ada berapa ${obj.n}? (ketuk untuk menghitung)`), h('div', { class: 'count-area' }, objs)),
           say: `Ada berapa ${obj.n}?`,
-          options: numOptions(n, lv === 1 ? 3 : 4, Math.max(1, min - 2), max + 2),
+          options: numOptions(n, nOpt, Math.max(1, min - 2), max + 2),
           render: (x) => x,
           isCorrect: (x) => x === n,
           sayCorrect: `Ada ${n} ${obj.n}`,
-          cols: lv === 1 ? 3 : 2,
+          cols: nOpt === 4 ? 2 : nOpt,
         });
       },
     });
@@ -74,39 +75,54 @@ registerGame({
 });
 
 registerGame({
-  id: 'matematika', cat: 'angka', title: 'Tambah & Kurang', icon: '➕', color: '#748ffc', ages: [2, 3],
+  id: 'matematika', cat: 'angka', title: 'Matematika', icon: '➕', color: '#748ffc', minAge: 4, maxAge: 10,
   start(ctx) {
-    const lv = ctx.level;
+    const d = ctx.d;
     const words = { '+': 'tambah', '−': 'kurang', '×': 'kali', ':': 'bagi' };
+    const add = (lim, minA = 1) => { const a = R.int(minA, lim - 1), b = R.int(1, lim - a); return { a, b, op: '+', ans: a + b }; };
+    const sub = (lim) => { const a = R.int(2, lim), b = R.int(1, a - 1); return { a, b, op: '−', ans: a - b }; };
+    const mul = (maxA) => { const a = R.int(2, maxA), b = R.int(1, 10); return { a, b, op: '×', ans: a * b }; };
+    const div = (maxB) => { const b = R.int(2, maxB), ans = R.int(1, 10); return { a: b * ans, b, op: ':', ans }; };
     function make() {
-      if (lv === 1) { const a = R.int(1, 3), b = R.int(1, 2); return { a, b, op: '+', ans: a + b }; }
-      if (lv === 2) {
-        if (Math.random() < 0.5) { const a = R.int(1, 9), b = R.int(1, 10 - a); return { a, b, op: '+', ans: a + b }; }
-        const a = R.int(2, 10), b = R.int(1, a - 1); return { a, b, op: '−', ans: a - b };
+      switch (d) {
+        case 1: return add(5);
+        case 2: return add(10);
+        case 3: return sub(10);
+        case 4: return R.pick([add, sub])(10);
+        case 5: return R.pick([add, sub])(20);
+        case 6: return R.pick([add, sub])(50);
+        case 7: return Math.random() < 0.5 ? add(100, 10) : sub(100);
+        case 8: return Math.random() < 0.6 ? mul(5) : div(5);
+        case 9: return Math.random() < 0.6 ? mul(10) : div(10);
+        default: {
+          const q = R.pick([() => add(100, 10), () => sub(100), () => mul(10), () => div(10)])();
+          if (Math.random() < 0.5) q.missing = true; // soal "? + 7 = 15"
+          return q;
+        }
       }
-      const op = R.pick(['+', '−', '×', ':']);
-      if (op === '+') { const a = R.int(10, 80), b = R.int(5, 99 - a); return { a, b, op, ans: a + b }; }
-      if (op === '−') { const a = R.int(20, 99), b = R.int(5, a - 5); return { a, b, op, ans: a - b }; }
-      if (op === '×') { const a = R.int(2, 10), b = R.int(1, 10); return { a, b, op, ans: a * b }; }
-      const b = R.int(2, 10), ans = R.int(1, 10); return { a: b * ans, b, op, ans };
     }
     runRounds(ctx, {
       round(area, api) {
         const q = make();
         const obj = R.pick(COUNTABLES).e;
-        const pics = lv === 1 || (lv === 2 && q.a <= 10)
+        const pics = d <= 4 && q.a <= 10
           ? (q.op === '+'
             ? h('div', { class: 'q-row' }, emojiRow(obj, q.a), h('b', null, ' + '), emojiRow(obj, q.b))
             : emojiRow(obj, q.a, q.a - q.b))
           : null;
+        const ans = q.missing ? q.a : q.ans;
+        const text = q.missing ? `? ${q.op} ${q.b} = ${q.ans}` : `${q.a} ${q.op} ${q.b} = ?`;
+        const say = q.missing
+          ? `Berapa ${words[q.op]} ${q.b}, sama dengan ${q.ans}?`
+          : `${q.a} ${words[q.op]} ${q.b}, sama dengan berapa?`;
         choiceRound(area, api, {
-          prompt: h('div', null, pics, h('div', { class: 'q-big' }, `${q.a} ${q.op} ${q.b} = ?`)),
-          say: `${q.a} ${words[q.op]} ${q.b}, sama dengan berapa?`,
-          options: numOptions(q.ans, lv === 1 ? 3 : 4, 0, lv === 3 ? 100 : 20),
+          prompt: h('div', null, pics, h('div', { class: 'q-big' }, text)),
+          say,
+          options: numOptions(ans, D(d, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4), 0, Math.max(20, ans + 10)),
           render: (x) => x,
-          isCorrect: (x) => x === q.ans,
-          sayCorrect: `${q.a} ${words[q.op]} ${q.b} sama dengan ${q.ans}`,
-          cols: lv === 1 ? 3 : 2,
+          isCorrect: (x) => x === ans,
+          sayCorrect: `${q.a} ${words[q.op]} ${q.b}, sama dengan ${q.ans}`,
+          cols: d <= 3 ? 3 : 2,
         });
       },
     });
@@ -114,26 +130,28 @@ registerGame({
 });
 
 registerGame({
-  id: 'banyak-sedikit', cat: 'angka', title: 'Banyak & Sedikit', icon: '⚖️', color: '#38d9a9', ages: [1, 2],
+  id: 'banyak-sedikit', cat: 'angka', title: 'Banyak & Sedikit', icon: '⚖️', color: '#38d9a9', minAge: 2, maxAge: 7,
   start(ctx) {
-    const lv = ctx.level;
+    const d = ctx.d;
     runRounds(ctx, {
       round(area, api) {
-        const more = lv === 1 || Math.random() < 0.5;
-        if (lv === 3) {
-          const nums = R.sample(Array.from({ length: 90 }, (_, i) => i + 10), 3);
+        const more = d <= 2 || Math.random() < 0.5;
+        if (d >= 6) {
+          const [lo, hi, count] = D(d, null, null, null, null, null, [1, 20, 2], [10, 99, 3], [10, 99, 3], [100, 999, 3], [100, 999, 4]);
+          const nums = [];
+          while (nums.length < count) { const x = R.int(lo, hi); if (!nums.includes(x)) nums.push(x); }
           const ans = more ? Math.max(...nums) : Math.min(...nums);
           choiceRound(area, api, {
             prompt: h('div', { class: 'q-text' }, more ? 'Mana angka yang paling BESAR?' : 'Mana angka yang paling KECIL?'),
             say: more ? 'Mana angka yang paling besar?' : 'Mana angka yang paling kecil?',
-            options: nums, cols: 3, render: (x) => x, isCorrect: (x) => x === ans, sayCorrect: String(ans),
+            options: nums, cols: count === 4 ? 2 : count, render: (x) => x, isCorrect: (x) => x === ans, sayCorrect: String(ans),
           });
           return;
         }
-        const max = lv === 1 ? 5 : 10;
+        const max = D(d, 3, 5, 6, 8, 10, 10, 10, 10, 10, 10);
         const a = R.int(1, max);
         let b = R.int(1, max);
-        while (b === a) b = R.int(1, max);
+        while (b === a || (d <= 2 && Math.abs(a - b) < 2)) b = R.int(1, max);
         const obj = R.pick(COUNTABLES);
         const ans = more ? Math.max(a, b) : Math.min(a, b);
         choiceRound(area, api, {
@@ -150,27 +168,27 @@ registerGame({
 });
 
 registerGame({
-  id: 'urutan-angka', cat: 'angka', title: 'Angka Hilang', icon: '🔍', color: '#20c997', ages: [2, 3],
+  id: 'urutan-angka', cat: 'angka', title: 'Angka Hilang', icon: '🔎', color: '#20c997', minAge: 4, maxAge: 10,
   start(ctx) {
-    const lv = ctx.level;
+    const d = ctx.d;
     runRounds(ctx, {
       round(area, api) {
-        let step = 1, len = 4, start;
-        if (lv === 1) start = R.int(1, 7);
-        else if (lv === 2) { len = 5; start = R.int(1, 16); if (Math.random() < 0.3) { step = -1; start = R.int(6, 20); } }
-        else { len = 5; step = R.pick([2, 3, 5, 10, -2]); start = step > 0 ? R.int(1, 20) : R.int(20, 40); }
+        const step = R.pick(D(d, [1], [1], [1], [1, -1], [2], [2, 5], [2, 5, 10, -2], [3, 4, 5, -5], [3, 4, 6, 25, -3], [4, 6, 7, 9, -4]));
+        const len = D(d, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6);
+        const maxStart = D(d, 6, 15, 15, 20, 20, 30, 50, 50, 100, 100);
+        const start = step > 0 ? R.int(1, maxStart) : R.int(Math.abs(step) * len, Math.abs(step) * len + maxStart);
         const seq = Array.from({ length: len }, (_, i) => start + i * step);
-        const miss = R.int(lv === 1 ? 1 : 0, len - 1);
+        const miss = R.int(d <= 2 ? len - 1 : 0, len - 1);
         const ans = seq[miss];
         const boxes = seq.map((n, i) => h('div', { class: 'seq-box' + (i === miss ? ' missing' : '') }, i === miss ? '?' : n));
         choiceRound(area, api, {
           prompt: h('div', null, h('div', { class: 'q-text' }, 'Angka berapa yang hilang?'), h('div', { class: 'seq' }, boxes)),
           say: 'Angka berapa yang hilang?',
-          options: numOptions(ans, lv === 1 ? 3 : 4, 0, 100),
+          options: numOptions(ans, d <= 3 ? 3 : 4, 0, 1000),
           render: (x) => x,
           isCorrect: (x) => x === ans,
           sayCorrect: seq.join(', '),
-          cols: lv === 1 ? 3 : 2,
+          cols: d <= 3 ? 3 : 2,
         });
         api.onDone = () => { boxes[miss].textContent = ans; };
       },
@@ -202,25 +220,28 @@ function clockSvg(hh, mm) {
 function timeWords(hh, mm) {
   if (mm === 0) return `jam ${hh}`;
   if (mm === 30) return `jam setengah ${hh % 12 + 1}`;
+  if (mm === 15) return `jam ${hh} lewat seperempat`;
+  if (mm === 45) return `jam ${hh % 12 + 1} kurang seperempat`;
   return `jam ${hh} lewat ${mm} menit`;
 }
 
 registerGame({
-  id: 'jam', cat: 'angka', title: 'Membaca Jam', icon: '⏰', color: '#ffa94d', ages: [3],
+  id: 'jam', cat: 'angka', title: 'Membaca Jam', icon: '⏰', color: '#ffa94d', minAge: 6, maxAge: 10,
   start(ctx) {
-    const lv = ctx.level;
-    const minutes = [[0], [0, 30], [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]][lv - 1];
+    const d = ctx.d;
+    const minutes = D(d, [0], [0], [0], [0], [0, 30], [0, 30], [0, 15, 30, 45], [0, 15, 30, 45],
+      [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55], Array.from({ length: 60 }, (_, i) => i));
     const fmt = (t) => `${String(t.h).padStart(2, '0')}.${String(t.m).padStart(2, '0')}`;
     runRounds(ctx, {
       round(area, api) {
         const ans = { h: R.int(1, 12), m: R.pick(minutes) };
         const pool = [];
         for (let i = 0; i < 20; i++) pool.push({ h: R.int(1, 12), m: R.pick(minutes) });
-        if (lv === 3) pool.push({ h: ans.h, m: (ans.m + 15) % 60 }, { h: ans.m / 5 || 12, m: ans.h * 5 % 60 });
+        if (d >= 7) pool.push({ h: ans.h % 12 + 1, m: ans.m }, { h: Math.round(ans.m / 5) || 12, m: (ans.h * 5) % 60 });
         choiceRound(area, api, {
           prompt: h('div', null, h('div', { class: 'q-text' }, 'Jam berapa sekarang?'), clockSvg(ans.h, ans.m)),
           say: 'Jam berapa sekarang?',
-          options: optionsWith(ans, pool, lv === 1 ? 3 : 4, fmt), cols: 2, choiceClass: 'small-text',
+          options: optionsWith(ans, pool, d <= 4 ? 3 : 4, fmt), cols: 2, choiceClass: 'small-text',
           render: fmt,
           isCorrect: (x) => fmt(x) === fmt(ans),
           sayCorrect: timeWords(ans.h, ans.m),

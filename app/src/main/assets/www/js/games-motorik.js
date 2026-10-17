@@ -1,5 +1,5 @@
 'use strict';
-/* Permainan motorik & kreativitas. */
+/* Permainan motorik & kreativitas. ctx.d = tingkat kesulitan 1–10, ctx.age = umur anak. */
 
 const FONT = '900 {S}px "Nunito", "Roboto", "Arial Black", sans-serif';
 
@@ -19,145 +19,156 @@ function pointerPos(e, canvas) {
   return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
 
+/* Menebalkan karakter dengan jari. chars = daftar karakter untuk satu level. */
+function tracingGame(ctx, chars, kind) {
+  const age = ctx.age;
+  let idx = 0, solved = false, good = 0;
+  const SCALE = 4; // resolusi rendah untuk pengecekan
+  const fill = h('div', { class: 'progress-fill' });
+  const wrap = h('div', { class: 'canvas-wrap' });
+  const guide = h('canvas');
+  const draw = h('canvas');
+  wrap.append(guide, draw);
+  const msg = h('div', { class: 'trace-msg' });
+  const tools = h('div', { class: 'toolbar' },
+    h('button', { class: 'btn btn-yellow btn-small', onClick: () => setup() }, '🧽 Hapus'),
+    h('button', { class: 'btn btn-blue btn-small', onClick: () => speak(sayChar(chars[idx])) }, '🔊 Dengar'),
+    h('button', { class: 'btn btn-blue btn-small', onClick: () => advance() }, 'Lewati ▶'));
+  ctx.stage.append(h('div', { class: 'progress' }, fill), tools, wrap, msg);
+
+  const sayChar = (ch) => (kind === 'angka' ? ch : sayLetter(ch));
+  const [needCov, needPrec] = age <= 3 ? [0.55, 0.3] : age <= 5 ? [0.65, 0.4] : age <= 7 ? [0.75, 0.5] : [0.8, 0.6];
+  let dg, W, H, brush, maskPts = [], zone = null, low, lowG, color;
+
+  function advance() {
+    idx++;
+    fill.style.width = (idx / chars.length) * 100 + '%';
+    if (idx >= chars.length) { ctx.finish(starsFromRatio(good / chars.length)); return; }
+    setup();
+  }
+
+  function setup() {
+    if (ctx.dead || idx >= chars.length) return;
+    solved = false;
+    const ch = chars[idx];
+    ({ w: W, h: H } = fitCanvas(guide, wrap));
+    const gg = guide.getContext('2d');
+    dg = fitCanvas(draw, wrap).g;
+    const size = Math.min(W * (ch.length > 1 ? 0.5 : 0.85), H * 0.82);
+    brush = Math.max(18, size * 0.11);
+    const font = FONT.replace('{S}', Math.round(size));
+    gg.clearRect(0, 0, W, H);
+    gg.strokeStyle = '#e9ecef'; gg.lineWidth = 2; gg.setLineDash([10, 8]);
+    [0.2, 0.5, 0.8].forEach((f) => { gg.beginPath(); gg.moveTo(0, H * f); gg.lineTo(W, H * f); gg.stroke(); });
+    gg.setLineDash([]);
+    gg.font = font; gg.textAlign = 'center'; gg.textBaseline = 'middle';
+    gg.fillStyle = '#dee2e6';
+    gg.fillText(ch, W / 2, H / 2);
+    gg.lineWidth = 3; gg.strokeStyle = '#adb5bd'; gg.setLineDash([6, 6]);
+    gg.strokeText(ch, W / 2, H / 2);
+    gg.setLineDash([]);
+    // Masker resolusi rendah untuk menilai hasil
+    const lw = Math.ceil(W / SCALE), lh = Math.ceil(H / SCALE);
+    const m = document.createElement('canvas');
+    m.width = lw; m.height = lh;
+    const mg = m.getContext('2d');
+    mg.scale(1 / SCALE, 1 / SCALE);
+    mg.font = font; mg.textAlign = 'center'; mg.textBaseline = 'middle';
+    mg.fillText(ch, W / 2, H / 2);
+    const md = mg.getImageData(0, 0, lw, lh).data;
+    maskPts = [];
+    for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) if (md[(y * lw + x) * 4 + 3] > 128) maskPts.push(y * lw + x);
+    mg.lineWidth = brush * 1.2; mg.lineJoin = 'round';
+    mg.strokeText(ch, W / 2, H / 2);
+    const zd = mg.getImageData(0, 0, lw, lh).data;
+    zone = new Uint8Array(lw * lh);
+    for (let i = 0; i < zone.length; i++) zone[i] = zd[i * 4 + 3] > 40 ? 1 : 0;
+    low = document.createElement('canvas');
+    low.width = lw; low.height = lh;
+    lowG = low.getContext('2d');
+    lowG.scale(1 / SCALE, 1 / SCALE);
+    msg.textContent = `Tebalkan ${kind === 'angka' ? 'angka' : 'huruf'} ${ch} dengan jarimu ✋`;
+    speak(kind === 'angka' ? `Ayo tulis angka ${ch}` : `Ayo tulis huruf ${ch === ch.toLowerCase() ? 'kecil ' : ''}${sayLetter(ch)}`);
+  }
+
+  let last = null;
+  function line(a, b) {
+    for (const g of [dg, lowG]) {
+      g.strokeStyle = color; g.lineWidth = brush; g.lineCap = g.lineJoin = 'round';
+      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+    }
+  }
+  draw.addEventListener('pointerdown', (e) => {
+    if (solved) return;
+    draw.setPointerCapture(e.pointerId);
+    color = PALETTE[R.int(0, PALETTE.length - 1)];
+    last = pointerPos(e, draw);
+    line(last, { x: last.x + 0.1, y: last.y });
+  });
+  draw.addEventListener('pointermove', (e) => {
+    if (!last) return;
+    const p = pointerPos(e, draw);
+    line(last, p);
+    last = p;
+  });
+  const end = () => { if (last) { last = null; check(); } };
+  draw.addEventListener('pointerup', end);
+  draw.addEventListener('pointercancel', end);
+
+  function check() {
+    if (solved || !maskPts.length) return;
+    const dd = lowG.getImageData(0, 0, low.width, low.height).data;
+    let hit = 0;
+    for (const i of maskPts) if (dd[i * 4 + 3] > 0) hit++;
+    let inside = 0, total = 0;
+    for (let i = 0; i < zone.length; i++) if (dd[i * 4 + 3] > 0) { total++; if (zone[i]) inside++; }
+    const coverage = hit / maskPts.length;
+    const precision = total ? inside / total : 0;
+    if (coverage >= needCov && precision >= needPrec) {
+      solved = true;
+      good++;
+      Sound.correct();
+      confetti(30);
+      floatStar(wrap);
+      ctx.addStar(1);
+      msg.textContent = '🎉 ' + R.pick(PRAISE);
+      speak(`${sayChar(chars[idx])}. ${R.pick(PRAISE)}`);
+      ctx.later(advance, 1800);
+    } else if (precision < needPrec && total > 40) {
+      msg.textContent = 'Ikuti garis abu-abu ya 🙂';
+    } else {
+      msg.textContent = `Terus! ${Math.round(Math.min(1, coverage / needCov) * 100)}% ✨`;
+    }
+  }
+
+  requestAnimationFrame(setup);
+  const onResize = () => setup();
+  window.addEventListener('resize', onResize);
+  ctx.onCleanup(() => window.removeEventListener('resize', onResize));
+}
+
 registerGame({
-  id: 'menulis', cat: 'motorik', title: 'Ayo Menulis', icon: '✏️', color: '#4dabf7', ages: [2, 3],
+  id: 'menulis-huruf', cat: 'huruf', title: 'Menulis Huruf', icon: '✏️', color: '#339af0', minAge: 3, maxAge: 8,
+  levelNames: ['A – F', 'G – M', 'N – S', 'T – Z', 'a – z'],
   start(ctx) {
-    const lv = ctx.level;
-    const sets = {
-      huruf: LETTERS.map((x) => x.l),
-      kecil: LETTERS.map((x) => x.l.toLowerCase()),
-      angka: '0123456789'.split(''),
-    };
-    let mode = 'huruf', idx = 0, solved = false;
-    const SCALE = 4; // resolusi rendah untuk pengecekan
-    const wrap = h('div', { class: 'canvas-wrap' });
-    const guide = h('canvas');
-    const draw = h('canvas');
-    wrap.append(guide, draw);
-    const msg = h('div', { class: 'trace-msg' }, 'Tebalkan huruf dengan jarimu ✋');
-    const modeRow = h('div', { class: 'chip-row' });
-    [['huruf', 'A B C'], ['kecil', 'a b c'], ['angka', '1 2 3']].forEach(([m, label]) => {
-      const b = h('button', { class: 'chip' + (m === mode ? ' on' : '') }, label);
-      b.addEventListener('click', () => {
-        modeRow.querySelectorAll('.chip').forEach((x) => x.classList.remove('on'));
-        b.classList.add('on');
-        mode = m; idx = 0; setup();
-      });
-      modeRow.append(b);
-    });
-    const tools = h('div', { class: 'toolbar' },
-      h('button', { class: 'btn btn-blue btn-small', onClick: () => { idx = (idx + sets[mode].length - 1) % sets[mode].length; setup(); } }, '◀'),
-      h('button', { class: 'btn btn-yellow btn-small', onClick: () => setup() }, '🧽 Hapus'),
-      h('button', { class: 'btn btn-blue btn-small', onClick: () => speak(sets[mode][idx]) }, '🔊'),
-      h('button', { class: 'btn btn-blue btn-small', onClick: () => { idx = (idx + 1) % sets[mode].length; setup(); } }, '▶'));
-    ctx.stage.append(modeRow, tools, wrap, msg);
-
-    let dg, W, H, brush, maskPts = [], zone = null, low, lowG, color;
-
-    function setup() {
-      solved = false;
-      const ch = sets[mode][idx];
-      ({ w: W, h: H } = fitCanvas(guide, wrap));
-      const gg = guide.getContext('2d');
-      dg = fitCanvas(draw, wrap).g;
-      const size = Math.min(W * 0.85, H * 0.82);
-      brush = Math.max(18, size * 0.11);
-      const font = FONT.replace('{S}', Math.round(size));
-      // Garis bantu
-      gg.clearRect(0, 0, W, H);
-      gg.strokeStyle = '#e9ecef'; gg.lineWidth = 2; gg.setLineDash([10, 8]);
-      [0.2, 0.5, 0.8].forEach((f) => { gg.beginPath(); gg.moveTo(0, H * f); gg.lineTo(W, H * f); gg.stroke(); });
-      gg.setLineDash([]);
-      gg.font = font; gg.textAlign = 'center'; gg.textBaseline = 'middle';
-      gg.fillStyle = '#dee2e6';
-      gg.fillText(ch, W / 2, H / 2);
-      gg.lineWidth = 3; gg.strokeStyle = '#adb5bd'; gg.setLineDash([6, 6]);
-      gg.strokeText(ch, W / 2, H / 2);
-      gg.setLineDash([]);
-      // Masker resolusi rendah
-      const lw = Math.ceil(W / SCALE), lh = Math.ceil(H / SCALE);
-      const m = document.createElement('canvas');
-      m.width = lw; m.height = lh;
-      const mg = m.getContext('2d');
-      mg.scale(1 / SCALE, 1 / SCALE);
-      mg.font = font; mg.textAlign = 'center'; mg.textBaseline = 'middle';
-      mg.fillText(ch, W / 2, H / 2);
-      const md = mg.getImageData(0, 0, lw, lh).data;
-      maskPts = [];
-      for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) if (md[(y * lw + x) * 4 + 3] > 128) maskPts.push(y * lw + x);
-      mg.lineWidth = brush * 1.2; mg.lineJoin = 'round';
-      mg.strokeText(ch, W / 2, H / 2);
-      const zd = mg.getImageData(0, 0, lw, lh).data;
-      zone = new Uint8Array(lw * lh);
-      for (let i = 0; i < zone.length; i++) zone[i] = zd[i * 4 + 3] > 40 ? 1 : 0;
-      low = document.createElement('canvas');
-      low.width = lw; low.height = lh;
-      lowG = low.getContext('2d');
-      lowG.scale(1 / SCALE, 1 / SCALE);
-      lowG.lineCap = lowG.lineJoin = 'round';
-      msg.textContent = mode === 'angka' ? `Tebalkan angka ${ch} ✋` : `Tebalkan huruf ${ch} ✋`;
-      speak(mode === 'angka' ? `Ayo tulis angka ${ch}` : `Ayo tulis huruf ${mode === 'kecil' ? 'kecil ' : ''}${ch}`);
-    }
-
-    let last = null;
-    function line(a, b) {
-      for (const [g, lwid] of [[dg, brush], [lowG, brush]]) {
-        g.strokeStyle = color; g.lineWidth = lwid; g.lineCap = g.lineJoin = 'round';
-        g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
-      }
-    }
-    draw.addEventListener('pointerdown', (e) => {
-      if (solved) return;
-      draw.setPointerCapture(e.pointerId);
-      color = PALETTE[R.int(0, PALETTE.length - 1)];
-      last = pointerPos(e, draw);
-      line(last, { x: last.x + 0.1, y: last.y });
-    });
-    draw.addEventListener('pointermove', (e) => {
-      if (!last) return;
-      const p = pointerPos(e, draw);
-      line(last, p);
-      last = p;
-    });
-    const end = () => { if (last) { last = null; check(); } };
-    draw.addEventListener('pointerup', end);
-    draw.addEventListener('pointercancel', end);
-
-    function check() {
-      if (solved || !maskPts.length) return;
-      const d = lowG.getImageData(0, 0, low.width, low.height).data;
-      let hit = 0;
-      for (const i of maskPts) if (d[i * 4 + 3] > 0) hit++;
-      let inside = 0, total = 0;
-      for (let i = 0; i < zone.length; i++) if (d[i * 4 + 3] > 0) { total++; if (zone[i]) inside++; }
-      const coverage = hit / maskPts.length;
-      const precision = total ? inside / total : 0;
-      const [needCov, needPrec] = lv === 1 ? [0.6, 0.35] : lv === 2 ? [0.72, 0.5] : [0.8, 0.6];
-      if (coverage >= needCov && precision >= needPrec) {
-        solved = true;
-        Sound.correct();
-        confetti(30);
-        floatStar(wrap);
-        ctx.addStar(1);
-        msg.textContent = '🎉 ' + R.pick(PRAISE);
-        speak(`${sets[mode][idx]}. ${R.pick(PRAISE)}`);
-        ctx.later(() => { idx = (idx + 1) % sets[mode].length; setup(); }, 1800);
-      } else if (precision < needPrec && total > 40) {
-        msg.textContent = 'Ikuti garis abu-abu ya 🙂';
-      } else {
-        msg.textContent = `Terus! ${Math.round(Math.min(1, coverage / needCov) * 100)}% ✨`;
-      }
-    }
-
-    requestAnimationFrame(setup);
-    const onResize = () => setup();
-    window.addEventListener('resize', onResize);
-    ctx.onCleanup(() => window.removeEventListener('resize', onResize));
+    const sets = ['ABCDEF', 'GHIJKLM', 'NOPQRS', 'TUVWXYZ'];
+    const chars = ctx.level <= 4 ? sets[ctx.level - 1].split('') : R.sample('abcdefghijklmnopqrstuvwxyz'.split(''), 8);
+    tracingGame(ctx, chars, 'huruf');
   },
 });
 
 registerGame({
-  id: 'menggambar', cat: 'motorik', title: 'Menggambar', icon: '🎨', color: '#da77f2', ages: [1, 2, 3],
+  id: 'menulis-angka', cat: 'angka', title: 'Menulis Angka', icon: '✍️', color: '#22b8cf', minAge: 3, maxAge: 7,
+  levels: 3, levelNames: ['0 – 4', '5 – 9', '10 – 20'],
+  start(ctx) {
+    const chars = ctx.level === 1 ? '01234'.split('') : ctx.level === 2 ? '56789'.split('')
+      : R.sample(Array.from({ length: 11 }, (_, i) => String(10 + i)), 5);
+    tracingGame(ctx, chars, 'angka');
+  },
+});
+
+registerGame({
+  id: 'menggambar', cat: 'motorik', title: 'Menggambar', icon: '🎨', color: '#da77f2', minAge: 1, maxAge: 10, levels: 0,
   start(ctx) {
     const colors = ['#e03131', '#fd7e14', '#fcc419', '#2f9e44', '#1c7ed6', '#7048e8', '#f783ac', '#8b5a2b', '#212529'];
     const stamps = ['⭐', '❤️', '🌸', '🐱', '🐶', '🦋', '🌈', '☀️', '🚗', '🎈'];
@@ -177,8 +188,8 @@ registerGame({
     const toolRow = h('div', { class: 'toolbar' });
     const toolBtns = {};
     function mark() { Object.entries(toolBtns).forEach(([k, b]) => b.classList.toggle('on', k === tool || k === 'size' + size)); }
-    [['size8', '•', () => { size = 8; }], ['size14', '●', () => { size = 14; }], ['size28', '⬤', () => { size = 28; }]].forEach(([k, l, fn]) => {
-      toolBtns[k] = h('button', { class: 'chip', onClick: () => { fn(); if (tool === 'eraser' || tool === 'stamp') tool = 'pen'; mark(); } }, l);
+    [['size8', '•', 8], ['size14', '●', 14], ['size28', '⬤', 28]].forEach(([k, l, s]) => {
+      toolBtns[k] = h('button', { class: 'chip', onClick: () => { size = s; if (tool !== 'pen') tool = 'pen'; mark(); } }, l);
       toolRow.append(toolBtns[k]);
     });
     toolBtns.eraser = h('button', { class: 'chip', onClick: () => { tool = 'eraser'; mark(); } }, '🧽');
@@ -190,7 +201,6 @@ registerGame({
     let g, W, H;
     function clear() { g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); }
     function setup() {
-      // simpan gambar lama agar tidak hilang saat ukuran berubah
       const old = g ? canvas.toDataURL() : null;
       ({ g, w: W, h: H } = fitCanvas(canvas, wrap));
       clear();
@@ -234,43 +244,65 @@ registerGame({
 });
 
 registerGame({
-  id: 'balon', cat: 'motorik', title: 'Pecah Balon', icon: '🎈', color: '#ff8787', ages: [1, 2, 3],
+  id: 'balon', cat: 'motorik', title: 'Pecah Balon', icon: '🎈', color: '#ff8787', minAge: 1, maxAge: 10,
   start(ctx) {
-    const lv = ctx.level;
-    const GOAL = 10;
+    const d = ctx.d;
+    const GOAL = D(d, 8, 10, 10, 10, 10, 10, 10, 12, 12, 15);
+    // Jenis target per tingkat: semua balon → warna → huruf → angka → penjumlahan → campuran
+    const mode = D(d, 'any', 'any', 'color', 'color', 'letter', 'number', 'add', 'add', 'addsub', 'mul');
+    const speedMin = D(d, 35, 45, 45, 55, 55, 60, 60, 75, 85, 95);
+    const interval = D(d, 1.5, 1.3, 1.3, 1.2, 1.1, 1.0, 1.0, 0.9, 0.8, 0.7);
+    const BCOLORS = COLORS.filter((c) => ['merah', 'kuning', 'biru', 'hijau', 'ungu', 'oranye'].includes(c.n));
     const hud = h('div', { class: 'hud' });
     const sky = h('div', { class: 'sky' });
     ctx.stage.append(hud, sky);
-    let popped = 0, target = null, label = '', sayText = '';
+    let popped = 0, misses = 0, target = null, label = '';
     const balloons = [];
-    const colors = ['#ff6b6b', '#ffa94d', '#fcc419', '#51cf66', '#4dabf7', '#9775fa', '#f783ac'];
 
     function newTarget() {
-      if (lv === 1) { target = null; label = ''; sayText = 'Pecahkan balonnya!'; }
-      else if (lv === 2) { target = R.pick(LETTERS).l; label = `huruf ${target}`; sayText = `Pecahkan balon huruf ${target}`; }
-      else { const a = R.int(1, 9), b = R.int(1, 9); target = String(a + b); label = `${a} + ${b}`; sayText = `Pecahkan balon jawaban ${a} tambah ${b}`; }
+      let sayText;
+      if (mode === 'any') { target = null; label = ''; sayText = 'Pecahkan balonnya!'; }
+      else if (mode === 'color') { target = R.pick(BCOLORS).n; label = `balon ${target}`; sayText = `Pecahkan balon warna ${target}`; }
+      else if (mode === 'letter') { target = R.pick(LETTERS).l; label = `huruf ${target}`; sayText = `Pecahkan balon huruf ${sayLetter(target)}`; }
+      else if (mode === 'number') { target = String(R.int(1, 10)); label = `angka ${target}`; sayText = `Pecahkan balon angka ${target}`; }
+      else {
+        let a, b, op;
+        if (mode === 'add') { a = R.int(1, d >= 8 ? 9 : 5); b = R.int(1, d >= 8 ? 9 : 5); op = '+'; }
+        else if (mode === 'addsub') { op = R.pick(['+', '−']); a = R.int(5, 15); b = R.int(1, op === '+' ? 9 : a - 1); }
+        else { op = '×'; a = R.int(2, 5); b = R.int(1, 5); }
+        const ans = op === '+' ? a + b : op === '−' ? a - b : a * b;
+        target = String(ans);
+        label = `${a} ${op} ${b}`;
+        sayText = `Pecahkan balon jawaban ${a} ${op === '+' ? 'tambah' : op === '−' ? 'kurang' : 'kali'} ${b}`;
+      }
       updateHud();
       speak(sayText);
     }
     function updateHud() {
-      hud.textContent = (lv === 1 ? '🎈 Pecahkan balon!' : `🎯 Cari: ${label}`) + `   ${popped}/${GOAL}`;
+      hud.textContent = (mode === 'any' ? '🎈 Pecahkan balon!' : `🎯 Cari: ${label}`) + `   ${popped}/${GOAL}`;
     }
-    function randomLabel() {
-      if (lv === 1) return R.pick(['', '', R.pick(OBJECTS)]);
-      if (Math.random() < 0.4) return target;
-      if (lv === 2) return R.pick(LETTERS).l;
-      return String(R.int(2, 18));
+    function decoy() {
+      if (mode === 'letter') return R.pick(LETTERS).l;
+      if (mode === 'number') return String(R.int(1, 10));
+      const t = +target;
+      return String(Math.max(0, t + R.pick([-3, -2, -1, 1, 2, 3])));
     }
     function spawn() {
       if (ctx.dead) return;
       const W = sky.clientWidth, H = sky.clientHeight;
-      const b = h('div', { class: 'balloon', style: { background: R.pick(colors) } }, randomLabel());
-      const o = { el: b, x: R.int(4, Math.max(5, W - 84)), y: H + 10, v: (lv === 1 ? 45 : 60) + Math.random() * (lv === 3 ? 70 : 45), sway: Math.random() * 6 };
+      const isTarget = mode === 'any' || Math.random() < 0.4;
+      let text = '', bg = R.pick(BCOLORS).c, key = '';
+      if (mode === 'any') text = R.pick(['', '', R.pick(OBJECTS)]);
+      else if (mode === 'color') { const c = isTarget ? BCOLORS.find((x) => x.n === target) : R.pick(BCOLORS); bg = c.c; key = c.n; }
+      else { text = isTarget ? target : decoy(); key = text; }
+      const b = h('div', { class: 'balloon', style: { background: bg } }, text);
+      const o = { el: b, x: R.int(4, Math.max(5, W - 84)), y: H + 10, v: speedMin + Math.random() * 40, sway: Math.random() * 6 };
       b.style.transform = `translate(${o.x}px, ${o.y}px)`;
       b.addEventListener('pointerdown', (e) => {
         e.preventDefault();
-        const ok = lv === 1 || b.textContent === target;
-        if (!ok) { Sound.wrong(); shake(b); return; }
+        if (popped >= GOAL) return;
+        const ok = mode === 'any' || key === target;
+        if (!ok) { misses++; Sound.wrong(); shake(b); return; }
         Sound.pop();
         const burst = h('div', { class: 'burst', style: { left: o.x + 39 + 'px', top: o.y + 47 + 'px' } }, '💥');
         sky.append(burst);
@@ -280,10 +312,12 @@ registerGame({
         ctx.addStar(1);
         if (popped >= GOAL) {
           updateHud();
-          ctx.later(() => ctx.finish(GOAL, GOAL), 500);
+          ctx.later(() => ctx.finish(starsFromRatio(GOAL / (GOAL + misses))), 500);
           return;
         }
-        if (lv === 3 || (lv === 2 && popped % 3 === 0)) newTarget(); else updateHud();
+        if (mode === 'any') updateHud();
+        else if (['add', 'addsub', 'mul'].includes(mode) || popped % 3 === 0) newTarget();
+        else updateHud();
       });
       sky.append(b);
       balloons.push(o);
@@ -294,7 +328,6 @@ registerGame({
       o.el.remove();
     }
     let lastT = performance.now(), spawnAcc = 0;
-    const interval = lv === 1 ? 1.3 : 1.0;
     function frame(t) {
       if (ctx.dead) return;
       const dt = Math.min(0.05, (t - lastT) / 1000);
@@ -316,7 +349,7 @@ registerGame({
 });
 
 registerGame({
-  id: 'sentuh', cat: 'motorik', title: 'Sentuh & Dengar', icon: '👆', color: '#ffd43b', ages: [1],
+  id: 'sentuh', cat: 'motorik', title: 'Sentuh & Dengar', icon: '👆', color: '#ffd43b', minAge: 1, maxAge: 3, levels: 0,
   start(ctx) {
     const area = h('div', { class: 'touch-area' }, h('div', { class: 'touch-hint' }, 'Sentuh di mana saja! 👆'));
     ctx.stage.append(area);
@@ -338,60 +371,63 @@ registerGame({
   },
 });
 
+const PIANO_KEYS = [
+  { f: 262, n: 'do', e: '🐱' }, { f: 294, n: 're', e: '🐶' }, { f: 330, n: 'mi', e: '🐸' }, { f: 349, n: 'fa', e: '🐤' },
+  { f: 392, n: 'sol', e: '🐰' }, { f: 440, n: 'la', e: '🐻' }, { f: 494, n: 'si', e: '🦁' }, { f: 523, n: 'do', e: '🐵' },
+];
+const PIANO_COLORS = ['#ff6b6b', '#ffa94d', '#fcc419', '#51cf66', '#20c997', '#4dabf7', '#748ffc', '#da77f2'];
+
+function pianoKeys(count, onPress) {
+  const piano = h('div', { class: 'piano', style: { gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` } });
+  const els = PIANO_KEYS.slice(0, count).map((k, i) => {
+    const b = h('button', { class: 'key', style: { background: PIANO_COLORS[i] } }, h('span', { class: 'k-emoji' }, k.e), k.n);
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); onPress(i); });
+    piano.append(b);
+    return b;
+  });
+  const flash = (i, dur = 300) => {
+    els[i].classList.add('lit');
+    Sound.note(PIANO_KEYS[i].f);
+    setTimeout(() => els[i].classList.remove('lit'), dur);
+  };
+  return { piano, flash };
+}
+
 registerGame({
-  id: 'piano', cat: 'motorik', title: 'Piano & Ingat Nada', icon: '🎹', color: '#9775fa', ages: [1, 2, 3],
+  id: 'piano', cat: 'motorik', title: 'Piano Hewan', icon: '🎹', color: '#9775fa', minAge: 1, maxAge: 10, levels: 0,
   start(ctx) {
-    const lv = ctx.level;
-    const keys = [
-      { f: 262, n: 'do', e: '🐱' }, { f: 294, n: 're', e: '🐶' }, { f: 330, n: 'mi', e: '🐸' }, { f: 349, n: 'fa', e: '🐤' },
-      { f: 392, n: 'sol', e: '🐰' }, { f: 440, n: 'la', e: '🐻' }, { f: 494, n: 'si', e: '🦁' }, { f: 523, n: 'do', e: '🐵' },
-    ];
-    const colors = ['#ff6b6b', '#ffa94d', '#fcc419', '#51cf66', '#20c997', '#4dabf7', '#748ffc', '#da77f2'];
-    let mode = 'bebas';
-    const modeRow = h('div', { class: 'chip-row' });
-    const info = h('div', { class: 'hud' }, '🎵 Mainkan musikmu!');
-    const piano = h('div', { class: 'piano', style: { gridTemplateColumns: 'repeat(8, minmax(0, 1fr))' } });
-    const keyEls = keys.map((k, i) => {
-      const b = h('button', { class: 'key', style: { background: colors[i] } }, h('span', { class: 'k-emoji' }, k.e), k.n);
-      b.addEventListener('pointerdown', (e) => { e.preventDefault(); press(i); });
-      piano.append(b);
-      return b;
-    });
-    [['bebas', '🎵 Bebas'], ['ikuti', '🧠 Ingat Nada']].forEach(([m, l]) => {
-      const b = h('button', { class: 'chip' + (m === mode ? ' on' : '') }, l);
-      b.addEventListener('click', () => {
-        modeRow.querySelectorAll('.chip').forEach((x) => x.classList.remove('on'));
-        b.classList.add('on'); mode = m; reset();
-      });
-      modeRow.append(b);
-    });
-    ctx.stage.append(modeRow, info, piano);
+    const { piano, flash } = pianoKeys(8, (i) => flash(i, 180));
+    ctx.stage.append(h('div', { class: 'hud' }, '🎵 Mainkan musikmu!'), piano);
+  },
+});
 
-    const activeCount = [4, 6, 8][lv - 1];
-    const goal = [3, 5, 7][lv - 1];
-    let seq = [], step = 0, listening = false, token = 0;
+registerGame({
+  id: 'ingat-nada', cat: 'logika', title: 'Ingat Nada', icon: '🧠', color: '#7950f2', minAge: 3, maxAge: 10,
+  start(ctx) {
+    const d = ctx.d;
+    const count = D(d, 3, 4, 4, 5, 6, 6, 7, 8, 8, 8);
+    const goal = D(d, 2, 3, 3, 4, 4, 5, 5, 6, 7, 8);
+    const speed = D(d, 800, 750, 700, 650, 650, 600, 550, 500, 450, 400);
+    const info = h('div', { class: 'hud' });
+    const { piano, flash } = pianoKeys(count, press);
+    ctx.stage.append(info, piano);
+    let seq = [R.int(0, count - 1)], step = 0, listening = false, token = 0, mistakes = 0;
 
-    function flash(i, dur = 300) {
-      keyEls[i].classList.add('lit');
-      Sound.note(keys[i].f);
-      setTimeout(() => keyEls[i].classList.remove('lit'), dur);
-    }
     function press(i) {
-      if (mode === 'bebas') { flash(i, 180); return; }
-      if (!listening || keyEls[i].classList.contains('off')) return;
+      if (!listening) return;
       flash(i, 180);
       if (i === seq[step]) {
         step++;
-        if (step === seq.length) {
-          listening = false;
-          ctx.addStar(1);
-          floatStar(info);
-          if (seq.length >= goal) { ctx.later(() => ctx.finish(goal, goal), 600); return; }
-          info.textContent = '✅ ' + R.pick(PRAISE);
-          ctx.later(() => { seq.push(R.int(0, activeCount - 1)); playSeq(); }, 900);
-        }
+        if (step < seq.length) return;
+        listening = false;
+        ctx.addStar(1);
+        floatStar(info);
+        if (seq.length >= goal) { ctx.later(() => ctx.finish(mistakes === 0 ? 3 : mistakes <= 2 ? 2 : 1), 600); return; }
+        info.textContent = '✅ ' + R.pick(PRAISE);
+        ctx.later(() => { seq.push(R.int(0, count - 1)); playSeq(); }, 900);
       } else {
         listening = false;
+        mistakes++;
         Sound.wrong();
         info.textContent = '🙂 Dengarkan lagi ya...';
         ctx.later(playSeq, 1000);
@@ -401,18 +437,10 @@ registerGame({
       const my = ++token;
       step = 0;
       info.textContent = `👀 Perhatikan... (${seq.length} nada)`;
-      seq.forEach((k, j) => ctx.later(() => { if (my === token) flash(k, 400); }, 600 + j * 650));
-      ctx.later(() => { if (my === token) { listening = true; info.textContent = '👉 Giliranmu! Ulangi nadanya'; } }, 600 + seq.length * 650);
+      seq.forEach((k, j) => ctx.later(() => { if (my === token) flash(k, speed * 0.6); }, 600 + j * speed));
+      ctx.later(() => { if (my === token) { listening = true; info.textContent = '👉 Giliranmu! Ulangi nadanya'; } }, 600 + seq.length * speed);
     }
-    function reset() {
-      token++;
-      listening = false;
-      keyEls.forEach((k, i) => k.classList.toggle('off', mode === 'ikuti' && i >= activeCount));
-      if (mode === 'bebas') { info.textContent = '🎵 Mainkan musikmu!'; return; }
-      seq = [R.int(0, activeCount - 1)];
-      speak('Dengarkan nadanya, lalu ulangi ya!');
-      ctx.later(playSeq, 1200);
-    }
-    reset();
+    speak('Dengarkan nadanya, lalu ulangi ya!');
+    ctx.later(playSeq, 1500);
   },
 });
