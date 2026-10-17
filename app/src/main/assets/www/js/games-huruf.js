@@ -99,7 +99,7 @@ registerGame({
           if (lower) ans = ans.toLowerCase();
         }
         const match = d <= 2;
-        const say = match ? `Cari huruf ${sayLetter(ans)}` : `Mana huruf ${lower ? 'kecil ' : ''}${sayLetter(ans)}?`;
+        const say = match ? `Cari huruf, ${sayLetter(ans)}` : `Mana huruf ${lower ? 'kecil' : ''}, ${sayLetter(ans)}?`;
         const prompt = match
           ? h('div', null, h('div', { class: 'q-text' }, 'Cari huruf yang sama:'), h('div', { class: 'q-big' }, ans))
           : h('div', null, h('div', { class: 'q-text' }, lower ? 'Dengarkan, lalu cari huruf kecilnya!' : 'Dengarkan, lalu cari hurufnya!'), h('div', { class: 'q-big' }, '👂'));

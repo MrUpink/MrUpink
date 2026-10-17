@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <!-- 1. Dashboard awal: pilih umur -->
+  <!-- 1. Pilih umur -->
   <section id="screen-age" class="screen active">
     <header class="home-header">
       <div class="brand">
@@ -19,7 +19,6 @@
         </div>
       </div>
       <div class="header-right">
-        <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
         <button class="icon-btn btn-settings" aria-label="Pengaturan">⚙️</button>
       </div>
     </header>
@@ -30,47 +29,38 @@
     </div>
   </section>
 
-  <!-- 2. Pilih kategori belajar -->
-  <section id="screen-cat" class="screen">
+  <!-- 2. Beranda: misi harian + kategori -->
+  <section id="screen-home" class="screen">
     <header class="topbar">
-      <button class="icon-btn" data-back aria-label="Kembali">⬅️</button>
       <button class="age-pill" id="age-pill" aria-label="Ganti umur"></button>
+      <div class="pill streak" id="streak-pill" title="Hari belajar berturut-turut">🔥 <b id="streak-count">0</b></div>
       <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
       <button class="icon-btn btn-settings" aria-label="Pengaturan">⚙️</button>
     </header>
     <div class="scroll">
+      <div class="quest-card">
+        <div class="quest-head"><b>🎯 Misi Harian</b><span id="quest-date"></span></div>
+        <div id="quest-list"></div>
+        <button class="btn btn-yellow chest-btn hidden" id="btn-chest">🎁 Buka Hadiah!</button>
+      </div>
       <h2 class="screen-title">Mau belajar apa hari ini?</h2>
       <div class="cat-grid" id="cat-grid"></div>
     </div>
   </section>
 
-  <!-- 3. Daftar permainan dalam kategori -->
-  <section id="screen-games" class="screen">
+  <!-- 3. Jalur belajar (seperti Duolingo) -->
+  <section id="screen-path" class="screen">
     <header class="topbar">
       <button class="icon-btn" data-back aria-label="Kembali">⬅️</button>
-      <h2 id="games-title"></h2>
+      <h2 id="path-title"></h2>
       <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
     </header>
-    <div class="scroll">
-      <div class="cards" id="games-grid"></div>
+    <div class="scroll" id="path-scroll">
+      <div id="path"></div>
     </div>
   </section>
 
-  <!-- 4. Pilih level -->
-  <section id="screen-level" class="screen">
-    <header class="topbar">
-      <button class="icon-btn" data-back aria-label="Kembali">⬅️</button>
-      <h2 id="level-title"></h2>
-      <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
-    </header>
-    <div class="scroll">
-      <h2 class="screen-title">Pilih Level</h2>
-      <p class="screen-sub" id="level-sub"></p>
-      <div class="level-grid" id="level-grid"></div>
-    </div>
-  </section>
-
-  <!-- 5. Bermain -->
+  <!-- 4. Bermain -->
   <section id="screen-play" class="screen">
     <header class="topbar">
       <button class="icon-btn" data-back aria-label="Kembali">⬅️</button>
@@ -80,18 +70,14 @@
     <div id="stage"></div>
   </section>
 
-  <!-- Hadiah -->
+  <!-- Hasil pelajaran / ujian -->
   <div id="reward" class="overlay hidden">
     <div class="modal reward-modal">
-      <div class="trophy">🏆</div>
+      <div class="trophy" id="reward-icon">🏆</div>
       <h2 id="reward-title">Hebat Sekali!</h2>
       <div class="reward-stars" id="reward-stars"></div>
       <p id="reward-text"></p>
-      <div class="modal-actions">
-        <button class="btn btn-green" id="btn-next">▶ Level Berikutnya</button>
-        <button class="btn btn-yellow" id="btn-again">🔁 Ulangi</button>
-        <button class="btn btn-blue" id="btn-menu">🏠 Menu</button>
-      </div>
+      <div class="modal-actions" id="reward-actions"></div>
     </div>
   </div>
 
@@ -101,22 +87,24 @@
       <h2>⚙️ Pengaturan</h2>
       <label class="toggle"><input type="checkbox" id="set-sound"> <span>🎵 Efek suara</span></label>
       <label class="toggle"><input type="checkbox" id="set-voice"> <span>🗣️ Suara pemandu</span></label>
-      <div class="field">
-        <label for="set-voice-name">Pilih suara pemandu</label>
-        <select id="set-voice-name"></select>
-        <p class="hint" id="voice-hint"></p>
-      </div>
+      <label class="toggle"><input type="checkbox" id="set-natural"> <span>🎙️ Suara natural (rekaman, offline)</span></label>
+      <p class="hint" id="natural-hint"></p>
       <div class="field">
         <label for="set-rate">Kecepatan bicara</label>
         <input type="range" id="set-rate" min="0.7" max="1.2" step="0.05">
       </div>
+      <div class="field">
+        <label for="set-voice-name">Suara HP (cadangan)</label>
+        <select id="set-voice-name"></select>
+        <p class="hint" id="voice-hint"></p>
+      </div>
       <div class="modal-actions">
         <button class="btn btn-blue btn-small" id="btn-test-voice">🔊 Tes Suara</button>
-        <button class="btn btn-yellow btn-small hidden" id="btn-tts-settings">📥 Unduh Suara</button>
+        <button class="btn btn-yellow btn-small hidden" id="btn-tts-settings">📥 Unduh Suara HP</button>
       </div>
       <div class="parent-info">
         <b>Untuk Orang Tua</b>
-        <p>Pilih umur anak di halaman awal. Setiap permainan punya beberapa level yang terbuka bertahap. Suara paling natural biasanya bertanda "Kualitas tinggi". Dampingi anak dan batasi waktu layar 15–30 menit per sesi.</p>
+        <p>Setiap kategori punya jalur belajar berisi unit. Selesaikan pelajaran satu per satu, lalu ikuti ujian di akhir unit untuk membuka unit berikutnya. Misi harian berganti setiap hari. Dampingi anak dan batasi waktu layar 15–30 menit per sesi.</p>
       </div>
       <div class="modal-actions">
         <button class="btn btn-red btn-small" id="btn-reset">🗑️ Reset Progres</button>
@@ -125,8 +113,10 @@
     </div>
   </div>
 
+  <div id="toast" class="toast hidden"></div>
   <div id="confetti-layer"></div>
 
+  <script src="audio/manifest.js"></script>
   <script src="js/core.js"></script>
   <script src="js/data.js"></script>
   <script src="js/games-huruf.js"></script>

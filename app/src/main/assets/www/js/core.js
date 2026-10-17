@@ -3,23 +3,36 @@
 
 const Store = (() => {
   const KEY = 'pintarceria.v1';
-  const defaults = { stars: 0, age: 0, sound: true, voice: true, voiceName: '', rate: 0.95, progress: {} };
+  const defaults = {
+    stars: 0, age: 0, sound: true, voice: true, natural: true, voiceName: '', rate: 0.95,
+    paths: {}, streak: { count: 0, last: '' }, daily: null,
+  };
   let data = Object.assign({}, defaults);
   try { Object.assign(data, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* abaikan */ }
   if (typeof data.age !== 'number' || data.age > 10) data.age = 0; // format lama (1–3) → minta pilih ulang
-  if (!data.progress || typeof data.progress !== 'object') data.progress = {};
+  if (!data.paths || typeof data.paths !== 'object') data.paths = {};
+  delete data.progress; // format level lama, diganti jalur belajar
   function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* abaikan */ } }
   return {
     get: (k) => data[k],
     set(k, v) { data[k] = v; save(); },
-    reset() { data.stars = 0; data.progress = {}; save(); },
-    /* Progres level per umur & permainan: { unlocked, best: {level: bintang} } */
-    progress(gameId) {
-      const k = data.age + ':' + gameId;
-      if (!data.progress[k]) data.progress[k] = { unlocked: 1, best: {} };
-      return data.progress[k];
+    save,
+    reset() { data.stars = 0; data.paths = {}; data.streak = { count: 0, last: '' }; data.daily = null; save(); },
+    /* Progres jalur belajar per umur & kategori: { pos: node aktif, stars: {node: bintang} } */
+    path(cat) {
+      const k = data.age + ':' + cat;
+      if (!data.paths[k]) data.paths[k] = { pos: 0, stars: {} };
+      return data.paths[k];
     },
-    saveProgress: save,
+  };
+})();
+
+/* Bus peristiwa sederhana (dipakai misi harian). */
+const Bus = (() => {
+  const subs = {};
+  return {
+    on(ev, fn) { (subs[ev] = subs[ev] || []).push(fn); },
+    emit(ev, data) { (subs[ev] || []).forEach((fn) => { try { fn(data); } catch (e) { console.error(e); } }); },
   };
 })();
 
@@ -63,19 +76,40 @@ const Sound = (() => {
 })();
 
 /* ---------- Pemandu suara ----------
- * Di Android memakai mesin TTS HP (lewat window.AndroidTTS), di browser memakai Web Speech.
- * Suara Bahasa Indonesia dengan kualitas tertinggi dipilih otomatis; orang tua bisa
- * menggantinya di Pengaturan.
+ * 1. Suara natural rekaman: klip audio yang dibuat saat build (tools/voice) dan disimpan di
+ *    dalam APK (www/audio), sehingga tetap jalan offline. Kalimat dipecah per koma/titik
+ *    menjadi potongan; angka disusun dari klip angka.
+ * 2. Cadangan: mesin TTS HP (Android: window.AndroidTTS, browser: Web Speech) bila ada
+ *    potongan kalimat yang tidak punya rekaman.
  */
+
+/* Memecah kalimat menjadi potongan ucapan (dipakai juga oleh tools/voice/phrases.js). */
+function speechChunks(text) {
+  return String(text).split(/[,.!?;:]+/).map((s) => s.trim()).filter(Boolean);
+}
+function speechKey(chunk) {
+  return chunk.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+/* Angka 0–999 → kunci klip: 0–100 utuh, ratusan + sisa (345 → "300", "45"). */
+function numberKeys(n) {
+  if (n <= 100) return [String(n)];
+  if (n >= 1000) return null;
+  const keys = [String(Math.floor(n / 100) * 100)];
+  if (n % 100) keys.push(String(n % 100));
+  return keys;
+}
+
 const Voice = (() => {
+  const clips = () => window.AUDIO_CLIPS || {};
   let webVoices = [];
   let webVoice = null;
+  let audio = null;
+  let seq = 0;
 
   function scoreWeb(v) {
     let s = 0;
     if (/natural|neural|online|premium|enhanced|wavenet/i.test(v.name)) s += 10;
     if (/google/i.test(v.name)) s += 5;
-    if (v.localService === false) s += 2;
     return s;
   }
   function loadWeb() {
@@ -89,11 +123,74 @@ const Voice = (() => {
     speechSynthesis.onvoiceschanged = loadWeb;
   }
 
+  /* Daftar file klip untuk kalimat, atau null bila ada potongan tanpa rekaman. */
+  function resolve(text) {
+    const map = clips();
+    const files = [];
+    for (const chunk of speechChunks(text)) {
+      const keys = /^\d+$/.test(chunk) ? numberKeys(+chunk) : [speechKey(chunk)];
+      if (!keys) return null;
+      for (const k of keys) {
+        if (!map[k]) return null;
+        files.push(map[k]);
+      }
+    }
+    return files.length ? files : null;
+  }
+
+  function stopClips() {
+    seq++;
+    if (audio) { audio.pause(); audio = null; }
+  }
+  function stopDevice() {
+    if (window.AndroidTTS) { try { window.AndroidTTS.stop(); } catch (e) { /* abaikan */ } }
+    else if (window.speechSynthesis) speechSynthesis.cancel();
+  }
+
+  function playClips(files, fallbackText) {
+    const my = seq;
+    let i = 0;
+    const next = () => {
+      if (my !== seq || i >= files.length) return;
+      const a = new Audio('audio/' + files[i++]);
+      a.playbackRate = Math.max(0.6, Math.min(1.4, Store.get('rate') / 0.95));
+      audio = a;
+      a.onended = () => setTimeout(next, 70);
+      a.play().catch(() => { if (my === seq && i === 1) deviceSpeak(fallbackText); });
+    };
+    next();
+  }
+
+  function deviceSpeak(text) {
+    if (window.AndroidTTS) {
+      try { window.AndroidTTS.speak(text); return; } catch (e) { /* jatuh ke Web Speech */ }
+    }
+    if (!window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'id-ID';
+    if (webVoice) u.voice = webVoice;
+    u.rate = Store.get('rate');
+    u.pitch = 1.05;
+    speechSynthesis.speak(u);
+  }
+
+  function speak(text) {
+    if (!Store.get('voice') || !text) return;
+    text = String(text);
+    stopClips();
+    stopDevice();
+    const files = Store.get('natural') ? resolve(text) : null;
+    if (files) playClips(files, text);
+    else deviceSpeak(text);
+  }
+  function stop() { stopClips(); stopDevice(); }
+
   function list() {
     if (window.AndroidTTS) {
       try { return JSON.parse(window.AndroidTTS.voices() || '[]'); } catch (e) { return []; }
     }
-    return webVoices.map((v) => ({ name: v.name, label: v.name + (v.localService === false ? ' (online)' : '') }));
+    return webVoices.map((v) => ({ name: v.name, label: v.name }));
   }
   function current() {
     if (window.AndroidTTS) { try { return window.AndroidTTS.currentVoice(); } catch (e) { return ''; } }
@@ -107,26 +204,6 @@ const Voice = (() => {
   function applyRate() {
     if (window.AndroidTTS) { try { window.AndroidTTS.setRate(Store.get('rate')); } catch (e) { /* abaikan */ } }
   }
-
-  function speak(text) {
-    if (!Store.get('voice') || !text) return;
-    text = String(text);
-    if (window.AndroidTTS) {
-      try { window.AndroidTTS.speak(text); return; } catch (e) { /* jatuh ke Web Speech */ }
-    }
-    if (!window.speechSynthesis) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'id-ID';
-    if (webVoice) u.voice = webVoice;
-    u.rate = Store.get('rate');
-    u.pitch = 1.05;
-    speechSynthesis.speak(u);
-  }
-  function stop() {
-    if (window.AndroidTTS) { try { window.AndroidTTS.stop(); } catch (e) { /* abaikan */ } }
-    else if (window.speechSynthesis) speechSynthesis.cancel();
-  }
   function init() {
     if (window.AndroidTTS) {
       const saved = Store.get('voiceName');
@@ -134,7 +211,8 @@ const Voice = (() => {
       applyRate();
     }
   }
-  return { speak, stop, list, current, choose, applyRate, init };
+  const hasNatural = () => Object.keys(clips()).length > 0;
+  return { speak, stop, list, current, choose, applyRate, init, resolve, hasNatural };
 })();
 const speak = Voice.speak;
 
@@ -285,6 +363,7 @@ function starsFromRatio(r) { return r >= 0.9 ? 3 : r >= 0.6 ? 2 : 1; }
  *          api.correct(node, sayText) & api.wrong(node, silent)
  */
 function runRounds(ctx, { total = 10, round }) {
+  if (ctx.capture) { ctx.capture(round); return; } // dipakai Ujian untuk mengambil soal
   const stage = ctx.stage;
   stage.innerHTML = '';
   const fill = h('div', { class: 'progress-fill' });
@@ -310,6 +389,7 @@ function runRounds(ctx, { total = 10, round }) {
         done = true;
         i++;
         if (!missed) firstTry++;
+        Bus.emit('answer', { first: !missed });
         fill.style.width = (i / total) * 100 + '%';
         if (node) node.classList.add('good');
         if (api.onDone) api.onDone();
@@ -321,6 +401,7 @@ function runRounds(ctx, { total = 10, round }) {
       },
       wrong(node, silent) {
         if (done) return;
+        if (!missed) Bus.emit('answer', { first: false });
         missed = true;
         Sound.wrong();
         if (node) shake(node);

@@ -11,6 +11,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ---- Suara natural: rekam klip suara Bahasa Indonesia lalu simpan di dalam APK ----
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Daftar kalimat yang diucapkan aplikasi
+        run: node tools/voice/phrases.js > phrases.json
+
+      - name: Ambil rekaman dari build sebelumnya
+        uses: actions/cache@v4
+        with:
+          path: app/src/main/assets/www/audio
+          key: voice-${{ hashFiles('phrases.json', 'tools/voice/build_audio.py') }}
+          restore-keys: voice-
+
+      - name: Rekam suara natural
+        continue-on-error: true # bila gagal, aplikasi tetap memakai suara HP
+        run: |
+          pip install edge-tts==7.3.1
+          python tools/voice/build_audio.py phrases.json app/src/main/assets/www/audio
+
+      # ---- Build APK ----
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

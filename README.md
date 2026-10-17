@@ -7,17 +7,21 @@ dan berjalan **100% offline** tanpa iklan.
 
 ## Fitur
 
-Alur aplikasi: **pilih umur (1–10 tahun) → pilih kategori belajar → pilih permainan → pilih level**.
+Alur aplikasi seperti **Duolingo**: **pilih umur (1–10 tahun) → Beranda → pilih kategori → jalur belajar**.
 
-- Hanya permainan yang cocok untuk umur anak yang ditampilkan.
-- Tingkat kesulitan (skala 1–10) = umur anak + level yang dipilih. Setiap permainan
-  menyesuaikan isi soal: jumlah pilihan, rentang angka, panjang kata, kalimat,
-  ketelitian jam, kecepatan balon, dan lain-lain.
-- Setiap permainan punya beberapa level yang terbuka bertahap; tiap level diberi
-  1–3 bintang sesuai jawaban benar pada percobaan pertama.
-- Suara pemandu memilih suara Bahasa Indonesia berkualitas tertinggi di HP; orang tua
-  dapat mengganti suara & kecepatan bicara di ⚙️ Pengaturan. Ejaan pelafalan huruf dan
-  suku kata diatur di `LETTER_SAY` / `saySyllable` pada `js/core.js`.
+- **Jalur belajar per kategori**, dibagi menjadi **Unit** (Mudah → Sedang → Menantang → Sulit → Juara).
+  Pelajaran dibuka satu per satu; setiap pelajaran memberi 1–3 bintang.
+- **Ujian di akhir setiap unit**: soal campuran dari pelajaran di unit itu, dengan **3 nyawa ❤️**.
+  Lulus ujian membuka unit berikutnya.
+- **Misi harian** (3 misi berganti setiap hari, mis. "Selesaikan 3 pelajaran", "Jawab 4 soal benar
+  berturut-turut") dengan **peti hadiah 🎁** bila semua selesai.
+- **Streak 🔥**: jumlah hari belajar berturut-turut.
+- **Pojok Jelajah**: permainan bebas (kenal huruf/angka, menggambar, piano, dll.).
+- Tingkat kesulitan (skala 1–10) = umur anak + unit. Hanya permainan yang cocok untuk umur anak
+  yang ditampilkan.
+- **Suara natural offline**: kalimat pemandu direkam dengan suara neural Bahasa Indonesia saat APK
+  dibangun dan disimpan di dalam APK — tidak butuh internet saat dipakai. Bila ada kalimat yang
+  belum terekam, otomatis memakai suara HP.
 
 **📚 Huruf & Membaca** — Kenal Huruf (A–Z + gambar), Belajar Suku Kata (BA BI BU BE BO),
 Cari Huruf, Huruf Awal, Susun Huruf, Susun Suku Kata, Ayo Membaca (kata & kalimat), Menulis Huruf.
@@ -48,8 +52,24 @@ tidak dikenal*).
 
 Atau buka folder ini di **Android Studio** lalu tekan ▶ Run.
 
-> Suara pemandu memakai mesin TTS di HP. Untuk hasil terbaik, pasang data suara
-> **Bahasa Indonesia** di *Pengaturan → Bahasa → Output text-to-speech (Google)*.
+## Suara natural (offline)
+
+Rekaman suara dibuat otomatis di GitHub Actions saat build:
+
+1. `tools/voice/phrases.js` mendaftar semua potongan kalimat yang diucapkan aplikasi
+   (huruf, suku kata, kata, angka, soal, pujian, dll.).
+2. `tools/voice/build_audio.py` merekamnya dengan suara neural `id-ID-GadisNeural`
+   (lewat paket `edge-tts`) ke `app/src/main/assets/www/audio/` beserta `manifest.js`.
+3. Aplikasi memutar klip tersebut; angka disusun dari klip angka. Kalimat tanpa rekaman
+   diucapkan oleh mesin TTS HP sebagai cadangan.
+
+Setelah menambah atau mengubah kalimat di permainan, jalankan
+`AGES=1,5,10 node tools/voice/coverage.js` (butuh Playwright) untuk memastikan semua kalimat
+sudah terdaftar di `phrases.js`.
+
+> Catatan: `edge-tts` memakai layanan *Read Aloud* Microsoft Edge yang gratis tetapi tidak resmi.
+> Untuk publikasi di Play Store, pertimbangkan mesin suara dengan lisensi jelas
+> (mis. Piper) — cukup ganti `build_audio.py`, format `manifest.js` tetap sama.
 
 ## Mencoba di browser
 

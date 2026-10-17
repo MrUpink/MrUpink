@@ -23,8 +23,8 @@ registerGame({
       void show.offsetWidth;
       show.classList.add('pop');
       if (n === 0) speak('Nol. Tidak ada apa-apa.');
-      else if (n <= 10) speak(Array.from({ length: n }, (_, i) => i + 1).join(', ') + `. Ada ${n} ${obj.n}.`);
-      else speak(`${n}. Ada ${n} ${obj.n}.`);
+      else if (n <= 10) speak(Array.from({ length: n }, (_, i) => i + 1).join(', ') + `. Ada, ${n}, ${obj.n}.`);
+      else speak(`${n}. Ada, ${n}, ${obj.n}.`);
     }
     for (let n = 0; n <= max; n++) {
       grid.append(h('button', {
@@ -66,7 +66,7 @@ registerGame({
           options: numOptions(n, nOpt, Math.max(1, min - 2), max + 2),
           render: (x) => x,
           isCorrect: (x) => x === n,
-          sayCorrect: `Ada ${n} ${obj.n}`,
+          sayCorrect: `Ada, ${n}, ${obj.n}`,
           cols: nOpt === 4 ? 2 : nOpt,
         });
       },
@@ -113,15 +113,15 @@ registerGame({
         const ans = q.missing ? q.a : q.ans;
         const text = q.missing ? `? ${q.op} ${q.b} = ${q.ans}` : `${q.a} ${q.op} ${q.b} = ?`;
         const say = q.missing
-          ? `Berapa ${words[q.op]} ${q.b}, sama dengan ${q.ans}?`
-          : `${q.a} ${words[q.op]} ${q.b}, sama dengan berapa?`;
+          ? `Berapa, ${words[q.op]}, ${q.b}, sama dengan, ${q.ans}?`
+          : `${q.a}, ${words[q.op]}, ${q.b}, sama dengan berapa?`;
         choiceRound(area, api, {
           prompt: h('div', null, pics, h('div', { class: 'q-big' }, text)),
           say,
           options: numOptions(ans, D(d, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4), 0, Math.max(20, ans + 10)),
           render: (x) => x,
           isCorrect: (x) => x === ans,
-          sayCorrect: `${q.a} ${words[q.op]} ${q.b}, sama dengan ${q.ans}`,
+          sayCorrect: `${q.a}, ${words[q.op]}, ${q.b}, sama dengan, ${q.ans}`,
           cols: d <= 3 ? 3 : 2,
         });
       },
@@ -160,7 +160,7 @@ registerGame({
           options: [a, b], cols: 2,
           render: (x) => h('div', { class: 'grp' }, obj.e.repeat(x)),
           isCorrect: (x) => x === ans,
-          sayCorrect: `Ada ${ans} ${obj.n}`,
+          sayCorrect: `Ada, ${ans}, ${obj.n}`,
         });
       },
     });
@@ -218,11 +218,11 @@ function clockSvg(hh, mm) {
 }
 
 function timeWords(hh, mm) {
-  if (mm === 0) return `jam ${hh}`;
-  if (mm === 30) return `jam setengah ${hh % 12 + 1}`;
-  if (mm === 15) return `jam ${hh} lewat seperempat`;
-  if (mm === 45) return `jam ${hh % 12 + 1} kurang seperempat`;
-  return `jam ${hh} lewat ${mm} menit`;
+  if (mm === 0) return `jam, ${hh}`;
+  if (mm === 30) return `jam setengah, ${hh % 12 + 1}`;
+  if (mm === 15) return `jam, ${hh}, lewat seperempat`;
+  if (mm === 45) return `jam, ${hh % 12 + 1}, kurang seperempat`;
+  return `jam, ${hh}, lewat, ${mm}, menit`;
 }
 
 registerGame({

@@ -88,7 +88,7 @@ function tracingGame(ctx, chars, kind) {
     lowG = low.getContext('2d');
     lowG.scale(1 / SCALE, 1 / SCALE);
     msg.textContent = `Tebalkan ${kind === 'angka' ? 'angka' : 'huruf'} ${ch} dengan jarimu ✋`;
-    speak(kind === 'angka' ? `Ayo tulis angka ${ch}` : `Ayo tulis huruf ${ch === ch.toLowerCase() ? 'kecil ' : ''}${sayLetter(ch)}`);
+    speak(kind === 'angka' ? `Ayo tulis angka, ${ch}` : `Ayo tulis huruf ${ch === ch.toLowerCase() ? 'kecil' : ''}, ${sayLetter(ch)}`);
   }
 
   let last = null;
@@ -262,9 +262,9 @@ registerGame({
     function newTarget() {
       let sayText;
       if (mode === 'any') { target = null; label = ''; sayText = 'Pecahkan balonnya!'; }
-      else if (mode === 'color') { target = R.pick(BCOLORS).n; label = `balon ${target}`; sayText = `Pecahkan balon warna ${target}`; }
-      else if (mode === 'letter') { target = R.pick(LETTERS).l; label = `huruf ${target}`; sayText = `Pecahkan balon huruf ${sayLetter(target)}`; }
-      else if (mode === 'number') { target = String(R.int(1, 10)); label = `angka ${target}`; sayText = `Pecahkan balon angka ${target}`; }
+      else if (mode === 'color') { target = R.pick(BCOLORS).n; label = `balon ${target}`; sayText = `Pecahkan balon warna, ${target}`; }
+      else if (mode === 'letter') { target = R.pick(LETTERS).l; label = `huruf ${target}`; sayText = `Pecahkan balon huruf, ${sayLetter(target)}`; }
+      else if (mode === 'number') { target = String(R.int(1, 10)); label = `angka ${target}`; sayText = `Pecahkan balon angka, ${target}`; }
       else {
         let a, b, op;
         if (mode === 'add') { a = R.int(1, d >= 8 ? 9 : 5); b = R.int(1, d >= 8 ? 9 : 5); op = '+'; }
@@ -273,7 +273,7 @@ registerGame({
         const ans = op === '+' ? a + b : op === '−' ? a - b : a * b;
         target = String(ans);
         label = `${a} ${op} ${b}`;
-        sayText = `Pecahkan balon jawaban ${a} ${op === '+' ? 'tambah' : op === '−' ? 'kurang' : 'kali'} ${b}`;
+        sayText = `Pecahkan balon jawaban, ${a}, ${op === '+' ? 'tambah' : op === '−' ? 'kurang' : 'kali'}, ${b}`;
       }
       updateHud();
       speak(sayText);
