@@ -7,7 +7,8 @@ Setiap kalimat dibuat dengan voice cloning + continuation dari referensi itu, la
 
 Pemakaian:
   python voxcpm_record.py plan  <phrases.json> <manifest.js> <out.json> <shards>
-      → daftar kalimat yang belum direkam, dibagi menjadi <shards> kelompok
+      → daftar kalimat yang belum direkam (plus kunci di tools/voice/redo.json, untuk rekam ulang),
+        dibagi menjadi <shards> kelompok
   python voxcpm_record.py record <plan.json> <shard> <out_dir>
       → merekam satu kelompok ke <out_dir>/*.mp3 + <out_dir>/clips-<shard>.json
   python voxcpm_record.py merge <audio_dir> <clips_dir>
@@ -27,6 +28,10 @@ REF_WAV = os.path.join(os.path.dirname(__file__), "voice-ref-c.wav")
 REF_TEXT = "Halo, adik-adik! Wah, hari ini kita akan belajar sambil bermain. Seru sekali, ya! Ayo, kita mulai!"
 SEED = 37
 TEMPO = 0.88
+NORMAL_RATE = 11.5   # huruf per detik (median rekaman Suara C sebelum diperlambat)
+MAX_RATE = 14.5      # lebih cepat dari ini = kemungkinan terpotong / terlalu cepat → coba seed lain
+TRIES = 4
+REDO = os.path.join(os.path.dirname(__file__), "redo.json")
 
 SATUAN = ["nol", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"]
 
@@ -75,8 +80,10 @@ def cmd_plan(phrases_path, manifest_path, out_path, shards):
     audio_dir = os.path.dirname(manifest_path)
     if source != VOICE_ID:
         have = {}
+    redo = set(json.load(open(REDO, encoding="utf-8"))) if os.path.exists(REDO) else set()
     todo = [it for it in items
-            if have.get(it["key"]) != clip_name(it["key"]) or not os.path.exists(os.path.join(audio_dir, clip_name(it["key"])))]
+            if it["key"] in redo or have.get(it["key"]) != clip_name(it["key"])
+            or not os.path.exists(os.path.join(audio_dir, clip_name(it["key"])))]
     n = max(1, min(int(shards), len(todo))) if todo else 0
     groups = [todo[i::n] for i in range(n)] if n else []
     json.dump({"groups": groups}, open(out_path, "w", encoding="utf-8"), ensure_ascii=False)
@@ -99,11 +106,22 @@ def cmd_record(plan_path, shard, out_dir):
         text = synth_text(it)
         name = clip_name(it["key"])
         t = time.time()
+        letters = max(1, len(re.sub(r"[^a-zA-Zéè]", "", text)))
         try:
-            torch.manual_seed(SEED)
-            wav = model.generate(text=text, prompt_wav_path=REF_WAV, prompt_text=REF_TEXT, reference_wav_path=REF_WAV,
-                                 cfg_value=2.5, inference_timesteps=12,
-                                 max_len=20 + 3 * len(text))  # batas aman agar tidak "kebablasan"
+            # Coba beberapa seed; pilih hasil dengan tempo bicara paling wajar (yang terlalu cepat
+            # biasanya terpotong).
+            best = None
+            for k in range(TRIES):
+                torch.manual_seed(SEED + k)
+                w = model.generate(text=text, prompt_wav_path=REF_WAV, prompt_text=REF_TEXT, reference_wav_path=REF_WAV,
+                                   cfg_value=2.5, inference_timesteps=12,
+                                   max_len=40 + 4 * len(text))  # batas aman agar tidak "kebablasan"
+                rate = letters / max(0.1, len(w) / sr)
+                if best is None or abs(rate - NORMAL_RATE) < abs(best[1] - NORMAL_RATE):
+                    best = (w, rate)
+                if rate <= MAX_RATE or letters < 6:
+                    break
+            wav, rate = best
             tmp = os.path.join(out_dir, name + ".wav")
             sf.write(tmp, wav, sr)
             filt = (f"atempo={TEMPO},"
@@ -114,7 +132,7 @@ def cmd_record(plan_path, shard, out_dir):
                             "-b:a", "48k", os.path.join(out_dir, name)], check=True)
             os.remove(tmp)
             done[it["key"]] = name
-            print(f"[{i}/{len(group)}] {time.time() - t:5.0f} dtk  {text}", flush=True)
+            print(f"[{i}/{len(group)}] {time.time() - t:5.0f} dtk  {rate:4.1f} huruf/dtk  {text}", flush=True)
         except Exception as e:  # noqa: BLE001 - satu kalimat gagal tidak menghentikan yang lain
             print(f"[{i}/{len(group)}] GAGAL {text!r}: {e}", flush=True)
     json.dump(done, open(os.path.join(out_dir, f"clips-{shard}.json"), "w", encoding="utf-8"), ensure_ascii=False)

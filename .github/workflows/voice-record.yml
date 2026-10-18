@@ -9,6 +9,7 @@ on:
     paths:
       - tools/voice/phrases.js
       - tools/voice/voxcpm_record.py
+      - tools/voice/redo.json
       - .github/workflows/voice-record.yml
 
 permissions:
@@ -114,7 +115,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A "$AUDIO_DIR" tools/voice/voice-ref-c.wav
+          rm -f tools/voice/redo.json   # daftar rekam ulang sudah dikerjakan
+          git add -A "$AUDIO_DIR" tools/voice/voice-ref-c.wav tools/voice/redo.json
           git commit -m "Rekam suara pemandu dengan VoxCPM2 (Suara C)" || echo "Tidak ada perubahan"
           for i in 1 2 3; do git pull --rebase -q origin "$GITHUB_REF_NAME" && git push -q origin HEAD:"$GITHUB_REF_NAME" && break; sleep 5; done
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
