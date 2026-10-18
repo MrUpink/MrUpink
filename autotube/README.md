@@ -25,7 +25,7 @@ HP (APK AutoTube) ──► Server AutoTube (Docker) ──► Claude · YouTube
 
 | Variabel | Dari mana | Biaya |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) → API Keys | ± Rp300–800 per naskah |
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) → API Keys | ± $0.04 (±Rp650) per naskah Shorts dengan Sonnet 5.5 · $20 ≈ 400 video Shorts |
 | `YOUTUBE_API_KEY` | Google Cloud Console → aktifkan **YouTube Data API v3** → Credentials → API key | gratis (kuota harian) |
 | `YT_CLIENT_ID`, `YT_CLIENT_SECRET` | Credentials → **OAuth client ID** → tipe *Web application*. Redirect URI: `https://ALAMAT-SERVER/oauth/callback` | gratis |
 | `PEXELS_API_KEY` | [pexels.com/api](https://www.pexels.com/api/) | gratis |

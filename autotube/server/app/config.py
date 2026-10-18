@@ -14,7 +14,7 @@ APP_TOKEN = os.environ.get("APP_TOKEN", "")
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-5-5")
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-5-5")
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
 YT_CLIENT_ID = os.environ.get("YT_CLIENT_ID", "")
