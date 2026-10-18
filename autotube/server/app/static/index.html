@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>AutoTube</title>
+<link rel="manifest" href="/static/manifest.json">
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #16181d; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #e11d48; --accent-text: #ffffff; --ok: #16a34a; --warn: #d97706; --bad: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1115; --card: #181b21; --text: #eef0f3; --muted: #9aa1ac; --line: #2a2f37;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 14px 16px 0; }
+  h1 { margin: 0 0 10px; font-size: 20px; }
+  h1 span { color: var(--accent); }
+  nav { display: flex; gap: 6px; border-bottom: 1px solid var(--line); }
+  nav button { flex: 1; background: none; border: 0; color: var(--muted); padding: 10px 4px; font: inherit; font-weight: 600; border-bottom: 2px solid transparent; }
+  nav button.on { color: var(--text); border-color: var(--accent); }
+  main { padding: 16px; max-width: 720px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .btn { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 10px; padding: 11px 14px; font: inherit; font-weight: 600; width: 100%; }
+  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .btn.sm { width: auto; padding: 7px 10px; font-size: 13px; }
+  .btn:disabled { opacity: .5; }
+  input, select { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
+  label { display: block; margin: 10px 0 4px; font-size: 13px; color: var(--muted); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--line); }
+  .pill.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+  .pill.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+  .pill.run { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .switch { position: relative; width: 50px; height: 28px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; background: var(--line); border-radius: 99px; transition: .2s; }
+  .switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: .2s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(22px); }
+  .trend { display: flex; gap: 10px; }
+  .trend img { width: 96px; height: 54px; object-fit: cover; border-radius: 8px; flex: none; }
+  .trend b { display: block; font-size: 14px; }
+  video { width: 100%; max-height: 60vh; border-radius: 10px; background: #000; margin-top: 8px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 8px; }
+  pre { white-space: pre-wrap; font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hidden { display: none; }
+  .toast { position: fixed; left: 16px; right: 16px; bottom: 20px; background: var(--text); color: var(--bg); padding: 12px; border-radius: 10px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="login" class="hidden">
+  <main>
+    <h1>Auto<span>Tube</span></h1>
+    <div class="card">
+      <label for="tok">Kata sandi aplikasi (APP_TOKEN)</label>
+      <input id="tok" type="password" autocomplete="current-password">
+      <p></p>
+      <button class="btn" onclick="login()">Masuk</button>
+    </div>
+  </main>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <h1>Auto<span>Tube</span></h1>
+    <nav>
+      <button data-tab="home" class="on">Beranda</button>
+      <button data-tab="trends">Tren</button>
+      <button data-tab="settings">Pengaturan</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-home">
+      <div class="card">
+        <div class="row">
+          <div>
+            <b>Autopilot</b>
+            <div class="muted" id="apInfo">–</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="apToggle" onchange="toggleAutopilot(this.checked)"><span></span></label>
+        </div>
+      </div>
+      <div class="card">
+        <label for="topic" style="margin-top:0">Topik khusus (opsional, kosongkan agar AI memilih dari tren)</label>
+        <input id="topic" placeholder="contoh: kenapa langit berwarna biru">
+        <p></p>
+        <button class="btn" id="makeBtn" onclick="makeVideo()">Buat video sekarang</button>
+      </div>
+      <div id="setupWarn"></div>
+      <div id="jobs"></div>
+    </section>
+
+    <section id="tab-trends" class="hidden">
+      <div class="card">
+        <div class="grid2">
+          <button class="btn" onclick="loadTrends('niche')">Naik di niche saya</button>
+          <button class="btn ghost" onclick="loadTrends('trending')">Trending umum</button>
+        </div>
+        <label for="tq">Cari niche lain</label>
+        <div class="row"><input id="tq" placeholder="kata kunci"><button class="btn sm" onclick="loadTrends('niche', tq.value)">Cari</button></div>
+      </div>
+      <p class="muted">Tren hanya dipakai sebagai inspirasi topik. AI membuat naskah dan video baru yang orisinal.</p>
+      <div id="trends"></div>
+    </section>
+
+    <section id="tab-settings" class="hidden">
+      <div class="card" id="ytCard"></div>
+      <div class="card">
+        <label for="s_niche" style="margin-top:0">Niche channel</label>
+        <input id="s_niche">
+        <div class="grid2">
+          <div><label for="s_format">Format</label>
+            <select id="s_format"><option value="short">Shorts 9:16</option><option value="long">Video panjang 16:9</option></select></div>
+          <div><label for="s_region">Negara tren</label>
+            <select id="s_region"><option>ID</option><option>MY</option><option>US</option><option>GB</option><option>IN</option><option>PH</option></select></div>
+        </div>
+        <label for="s_language">Bahasa narasi</label>
+        <input id="s_language">
+        <div class="grid2">
+          <div><label for="s_voice">Suara</label>
+            <select id="s_voice">
+              <option value="id-ID-ArdiNeural">Ardi (pria, ID)</option>
+              <option value="id-ID-GadisNeural">Gadis (wanita, ID)</option>
+              <option value="ms-MY-OsmanNeural">Osman (pria, MY)</option>
+              <option value="en-US-AndrewNeural">Andrew (pria, EN)</option>
+              <option value="en-US-AvaNeural">Ava (wanita, EN)</option>
+            </select></div>
+          <div><label for="s_voice_rate">Kecepatan suara</label>
+            <select id="s_voice_rate"><option>-10%</option><option>+0%</option><option>+5%</option><option>+10%</option><option>+20%</option></select></div>
+        </div>
+        <div class="grid2">
+          <div><label for="s_interval_hours">Autopilot tiap (jam)</label><input id="s_interval_hours" type="number" min="1"></div>
+          <div><label for="s_daily_limit">Maks video / hari</label><input id="s_daily_limit" type="number" min="1" max="10"></div>
+        </div>
+        <label for="s_category_id">Kategori YouTube</label>
+        <select id="s_category_id">
+          <option value="">Semua / Education</option><option value="27">Education</option><option value="28">Science &amp; Technology</option>
+          <option value="24">Entertainment</option><option value="22">People &amp; Blogs</option><option value="26">Howto &amp; Style</option>
+          <option value="17">Sports</option><option value="20">Gaming</option><option value="25">News &amp; Politics</option>
+        </select>
+        <div class="grid2">
+          <div><label for="s_privacy">Privasi upload</label>
+            <select id="s_privacy"><option value="public">Publik</option><option value="unlisted">Tidak publik</option><option value="private">Pribadi</option></select></div>
+          <div><label for="s_auto_upload">Upload otomatis</label>
+            <select id="s_auto_upload"><option value="true">Ya</option><option value="false">Tidak (cek dulu)</option></select></div>
+        </div>
+        <label for="s_ai_disclosure">Label konten AI/sintetis di YouTube</label>
+        <select id="s_ai_disclosure"><option value="true">Ya (disarankan)</option><option value="false">Tidak</option></select>
+        <p></p>
+        <button class="btn" onclick="saveSettings()">Simpan</button>
+      </div>
+      <div class="card" id="keysCard"></div>
+      <button class="btn ghost" onclick="logout()">Keluar</button>
+      <p></p>
+    </section>
+  </main>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let token = localStorage.getItem("at_token") || "";
+let status = null, pollTimer = null;
+const RUNNING = ["queued", "researching", "writing", "voicing", "footage", "rendering", "uploading"];
+const LABEL = { queued: "Antre", researching: "Riset tren", writing: "Menulis naskah", voicing: "Membuat suara",
+  footage: "Cari footage", rendering: "Render", uploading: "Upload", rendered: "Siap upload", uploaded: "Terupload", failed: "Gagal" };
+
+function toast(msg) {
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { "Content-Type": "application/json", "X-App-Token": token, ...(opts.headers || {}) } });
+  if (r.status === 401) { logout(); throw new Error("Token salah"); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || r.statusText);
+  return data;
+}
+
+async function login() {
+  token = $("tok").value.trim();
+  try { await api("/api/status"); localStorage.setItem("at_token", token); start(); }
+  catch (e) { toast(e.message); }
+}
+function logout() { localStorage.removeItem("at_token"); token = ""; $("app").classList.add("hidden"); $("login").classList.remove("hidden"); }
+
+document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
+  ["home", "trends", "settings"].forEach((t) => $("tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  if (b.dataset.tab === "settings") loadSettings();
+});
+
+async function refresh() {
+  try {
+    status = await api("/api/status");
+    const ap = status.autopilot;
+    $("apToggle").checked = ap.enabled;
+    $("apInfo").textContent = ap.enabled
+      ? `${ap.made_today}/${ap.daily_limit} video hari ini · berikutnya ${new Date(ap.next_run).toLocaleString("id-ID", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}`
+      : "Mati. Nyalakan agar video dibuat & diupload otomatis.";
+    const missing = Object.entries(status.keys).filter(([, v]) => !v).map(([k]) => k);
+    $("setupWarn").innerHTML = missing.length || !status.youtube_linked
+      ? `<div class="card"><b>Perlu disiapkan</b><div class="muted">${missing.length ? "Kunci API belum diisi di server: " + missing.join(", ") + ". " : ""}${!status.youtube_linked ? "Channel YouTube belum dihubungkan (tab Pengaturan)." : ""}</div></div>` : "";
+    renderJobs(await api("/api/jobs"));
+  } catch (e) { toast(e.message); }
+}
+
+function renderJobs(jobs) {
+  const anyRunning = jobs.some((j) => RUNNING.includes(j.status));
+  $("makeBtn").disabled = anyRunning;
+  clearTimeout(pollTimer); pollTimer = setTimeout(refresh, anyRunning ? 4000 : 30000);
+  if (!jobs.length) { $("jobs").innerHTML = `<p class="muted">Belum ada video. Tekan "Buat video sekarang" atau nyalakan Autopilot.</p>`; return; }
+  $("jobs").innerHTML = jobs.map((j) => {
+    const cls = j.status === "failed" ? "bad" : j.status === "uploaded" ? "ok" : RUNNING.includes(j.status) ? "run" : "";
+    const title = j.plan?.title || j.topic_hint || "Menyiapkan…";
+    const vid = j.video ? `<video controls preload="none" src="/media/${j.id}/video.mp4?token=${encodeURIComponent(token)}"></video>` : "";
+    const actions = [
+      j.youtube_id ? `<a class="btn sm ghost" href="https://youtu.be/${j.youtube_id}" target="_blank">Buka di YouTube</a>` : "",
+      j.video && !j.youtube_id && j.status !== "uploading" ? `<button class="btn sm" onclick="uploadJob('${j.id}')">Upload</button>` : "",
+      j.video ? `<a class="btn sm ghost" href="/media/${j.id}/video.mp4?token=${encodeURIComponent(token)}" download>Unduh</a>` : "",
+      !RUNNING.includes(j.status) ? `<button class="btn sm ghost" onclick="delJob('${j.id}')">Hapus</button>` : "",
+    ].join(" ");
+    return `<div class="card">
+      <div class="row"><b>${esc(title)}</b><span class="pill ${cls}">${LABEL[j.status] || j.status}</span></div>
+      <div class="muted">${new Date(j.created).toLocaleString("id-ID")} · ${j.source === "autopilot" ? "Autopilot" : "Manual"}${j.duration ? " · " + j.duration + " dtk" : ""}</div>
+      ${j.error ? `<div class="muted" style="color:var(--bad)">${esc(j.error)}</div>` : ""}
+      ${vid}
+      <div style="margin-top:8px">${actions}</div>
+      <details><summary>Detail & naskah</summary>
+        ${j.plan ? `<pre><b>Sudut pandang:</b> ${esc(j.plan.angle)}\n\n${j.plan.scenes.map((s, i) => `${i + 1}. ${esc(s.narration)}`).join("\n")}\n\n${esc(j.plan.description)}\n\nTags: ${esc(j.plan.tags.join(", "))}</pre>` : ""}
+        <pre>${esc(j.log.join("\n"))}</pre>
+      </details>
+    </div>`;
+  }).join("");
+}
+
+async function makeVideo() {
+  try { await api("/api/jobs", { method: "POST", body: JSON.stringify({ topic: $("topic").value }) }); $("topic").value = ""; toast("Proses dimulai"); refresh(); }
+  catch (e) { toast(e.message); }
+}
+async function uploadJob(id) { toast("Mengupload…"); try { await api(`/api/jobs/${id}/upload`, { method: "POST" }); } catch (e) { toast(e.message); } refresh(); }
+async function delJob(id) { if (!confirm("Hapus video ini dari server?")) return; await api(`/api/jobs/${id}`, { method: "DELETE" }); refresh(); }
+async function toggleAutopilot(on) { await api("/api/settings", { method: "PUT", body: JSON.stringify({ autopilot: on }) }); toast(on ? "Autopilot nyala" : "Autopilot mati"); refresh(); }
+
+async function loadTrends(mode, q = "") {
+  $("trends").innerHTML = `<p class="muted">Memuat…</p>`;
+  try {
+    const items = await api(`/api/trends?mode=${mode}&q=${encodeURIComponent(q)}`);
+    $("trends").innerHTML = items.map((t) => `<div class="card trend">
+      ${t.thumbnail ? `<img src="${esc(t.thumbnail)}" alt="">` : ""}
+      <div style="flex:1;min-width:0"><b>${esc(t.title)}</b>
+        <div class="muted">${esc(t.channel)} · ${t.views.toLocaleString("id-ID")} views · <b style="display:inline;color:var(--accent)">${t.views_per_hour.toLocaleString("id-ID")}/jam</b></div>
+        <button class="btn sm ghost" style="margin-top:6px" onclick='inspire(${JSON.stringify(t.title).replace(/'/g, "&#39;")})'>Jadikan inspirasi</button></div>
+    </div>`).join("") || `<p class="muted">Tidak ada hasil.</p>`;
+  } catch (e) { $("trends").innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
+}
+function inspire(title) {
+  $("topic").value = `Topik terinspirasi tren "${title}" — buat sudut pandang baru yang orisinal`;
+  document.querySelector('nav button[data-tab="home"]').click();
+}
+
+const FIELDS = ["niche", "format", "region", "language", "voice", "voice_rate", "interval_hours", "daily_limit", "category_id", "privacy", "auto_upload", "ai_disclosure"];
+async function loadSettings() {
+  const s = await api("/api/settings");
+  FIELDS.forEach((f) => $("s_" + f).value = String(s[f]));
+  const st = status || await api("/api/status");
+  $("ytCard").innerHTML = st.youtube_linked
+    ? `<div class="row"><div><b>Channel YouTube</b><div class="muted">${st.channel ? esc(st.channel.title) + " · " + (st.channel.subscribers ?? "?") + " subscriber" : "Terhubung"}</div></div><a class="btn sm ghost" href="/oauth/start?token=${encodeURIComponent(token)}">Ganti</a></div>`
+    : `<b>Hubungkan channel YouTube</b><p class="muted">Login Google sekali agar aplikasi bisa mengupload ke channel Anda.</p><a class="btn" style="display:block;text-align:center;text-decoration:none" href="/oauth/start?token=${encodeURIComponent(token)}">Hubungkan YouTube</a>`;
+  $("keysCard").innerHTML = `<b>Status server</b><div class="muted">` + Object.entries(st.keys).map(([k, v]) => `${k}: <span class="pill ${v ? "ok" : "bad"}">${v ? "OK" : "kosong"}</span>`).join("<br>") + `</div>`;
+}
+async function saveSettings() {
+  const body = {};
+  FIELDS.forEach((f) => {
+    let v = $("s_" + f).value;
+    if (["interval_hours", "daily_limit"].includes(f)) v = Number(v);
+    if (["auto_upload", "ai_disclosure"].includes(f)) v = v === "true";
+    body[f] = v;
+  });
+  await api("/api/settings", { method: "PUT", body: JSON.stringify(body) }); toast("Tersimpan");
+}
+
+function start() { $("login").classList.add("hidden"); $("app").classList.remove("hidden"); refresh(); }
+if (token) start(); else logout();
+</script>
+</body>
+</html>

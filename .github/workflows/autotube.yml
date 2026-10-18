@@ -1,0 +1,39 @@
+name: Build AutoTube APK
+
+on:
+  push:
+    paths:
+      - autotube/**
+      - settings.gradle
+      - .github/workflows/autotube.yml
+  workflow_dispatch:
+
+jobs:
+  server-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pasang dependensi & cek server bisa dimuat
+        working-directory: autotube/server
+        run: |
+          pip install -r requirements.txt
+          APP_TOKEN=test DATA_DIR=/tmp/at python -c "import app.main"
+
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build APK
+        run: ./gradlew :autotube:assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AutoTube-apk
+          path: autotube/android/build/outputs/apk/debug/autotube-debug.apk

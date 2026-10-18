@@ -14,3 +14,7 @@ dependencyResolutionManagement {
 }
 rootProject.name = "PintarCeria"
 include ':app'
+
+// AutoTube: pembuat video YouTube otomatis (lihat autotube/README.md)
+include ':autotube'
+project(':autotube').projectDir = file('autotube/android')
