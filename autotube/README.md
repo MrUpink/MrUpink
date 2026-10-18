@@ -41,14 +41,31 @@ HP (APK AutoTube) ──► Server AutoTube (Docker) ──► Claude · YouTube
 | `APP_TOKEN` | buat sendiri (kata sandi panjang untuk membuka aplikasi) | – |
 | `PUBLIC_URL` | alamat https server Anda, mis. `https://autotube.domainanda.com` | – |
 
-Di **OAuth consent screen**, tambahkan email Google Anda sebagai *Test user* (cukup untuk pemakaian pribadi).
+Di **OAuth consent screen**: tipe *External*, tambahkan email Anda sebagai *Test user*, lalu tekan
+**Publish app → In production**. Jika tetap di mode *Testing*, login YouTube kedaluwarsa setiap 7 hari.
+Verifikasi Google tidak perlu untuk pemakaian sendiri; saat login cukup pilih *Advanced → Go to … (unsafe)*.
+
+> **Penting, audit YouTube API:** video yang diupload lewat API dari project Google yang belum diaudit akan
+> **terkunci privat**. Ajukan *YouTube API Services Audit* (formulir audit & quota extension di Google Cloud)
+> untuk project Anda. Sampai disetujui, biarkan **Upload otomatis = Tidak** (default): AutoTube tetap riset,
+> menulis, dan merender otomatis, lalu Anda upload dari aplikasi YouTube di HP memakai tombol
+> **Unduh**, **Salin judul**, dan **Salin deskripsi**. Setelah audit disetujui, nyalakan Upload otomatis.
 
 > Catatan kuota: upload lewat API memakai ±1.600 unit dari kuota default 10.000 unit/hari, jadi
 > maksimal sekitar 6 upload per hari. Default autopilot 3 video/hari (2 Shorts + 1 panjang).
 
 ## 2. Jalankan server online
 
-Butuh VPS kecil (1–2 vCPU, RAM 2 GB) atau layanan yang mendukung Docker dengan **disk permanen**
+**Cara termudah:** arahkan domain ke IP VPS (DNS record `A`), login ke VPS lewat SSH, lalu jalankan:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MrUpink/MrUpink/ccr-202ca1bb-0e8qzt/autotube/server/install.sh | sudo bash
+```
+
+Skrip memasang Docker + Caddy (HTTPS otomatis), menanyakan kunci API, lalu menjalankan AutoTube.
+Jalankan ulang perintah yang sama untuk update.
+
+Cara manual: butuh VPS kecil (1–2 vCPU, RAM 2 GB) atau layanan yang mendukung Docker dengan **disk permanen**
 (Railway, Render, Fly.io, dsb.).
 
 ```bash

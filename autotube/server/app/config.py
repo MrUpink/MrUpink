@@ -40,7 +40,9 @@ DEFAULT_SETTINGS = {
     # video panjang mengumpulkan jam tayang dan RPM jauh lebih tinggi.
     "daily_shorts": 2,
     "daily_long": 1,
-    "auto_upload": True,
+    # Project Google yang belum lolos audit YouTube API: upload via API terkunci privat.
+    # Nyalakan setelah audit disetujui; sebelum itu upload manual dari HP (tombol Salin judul/deskripsi).
+    "auto_upload": False,
     "privacy": "public",  # public | unlisted | private
     "ai_disclosure": True,  # tandai "konten sintetis" di YouTube
     # Upload sebagai terjadwal agar tayang di jam ramai zona waktu penonton (bukan jam render).

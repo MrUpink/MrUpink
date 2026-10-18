@@ -269,6 +269,7 @@ async function refresh() {
 }
 
 function renderJobs(jobs) {
+  lastJobs = jobs;
   const anyRunning = jobs.some((j) => RUNNING.includes(j.status));
   $("makeBtn").disabled = anyRunning;
   clearTimeout(pollTimer); pollTimer = setTimeout(refresh, anyRunning ? 4000 : 30000);
@@ -281,6 +282,8 @@ function renderJobs(jobs) {
       j.youtube_id ? `<a class="btn sm ghost" href="https://youtu.be/${j.youtube_id}" target="_blank">Buka di YouTube</a>` : "",
       j.video && !j.youtube_id && j.status !== "uploading" ? `<button class="btn sm" onclick="uploadJob('${j.id}')">Upload</button>` : "",
       j.video ? `<a class="btn sm ghost" href="/media/${j.id}/video.mp4?token=${encodeURIComponent(token)}" download>Unduh</a>` : "",
+      j.video && !j.youtube_id ? `<button class="btn sm ghost" onclick="copyMeta('${j.id}','title')">Salin judul</button>` : "",
+      j.video && !j.youtube_id ? `<button class="btn sm ghost" onclick="copyMeta('${j.id}','desc')">Salin deskripsi</button>` : "",
       !RUNNING.includes(j.status) ? `<button class="btn sm ghost" onclick="delJob('${j.id}')">Hapus</button>` : "",
     ].join(" ");
     return `<div class="card">
@@ -296,6 +299,19 @@ function renderJobs(jobs) {
       </details>
     </div>`;
   }).join("");
+}
+
+let lastJobs = [];
+async function copyMeta(id, what) {
+  const p = lastJobs.find((j) => j.id === id)?.plan;
+  if (!p) return;
+  const text = what === "title" ? p.title
+    : p.description + "\n\n" + p.tags.map((t) => "#" + t.replace(/\s+/g, "")).slice(0, 8).join(" ") + (lastJobs.find((j) => j.id === id).format === "short" ? " #Shorts" : "");
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) { // WebView lama tanpa izin clipboard
+    const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove();
+  }
+  toast(what === "title" ? "Judul disalin" : "Deskripsi + hashtag disalin");
 }
 
 async function makeVideo() {
