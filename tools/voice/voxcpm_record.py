@@ -3,7 +3,9 @@
 
 Suara C = referensi tools/voice/voice-ref-c.wav (dibuat dengan voice design, lihat voxcpm_trial.py).
 Setiap kalimat dibuat dengan voice cloning + continuation dari referensi itu, lalu diperlambat
-(tempo 0.88), disamakan volumenya, dan jeda hening di awal/akhir dipotong.
+(tempo 0.88), disamakan volumenya, dan jeda hening di awal/akhir dipotong. Hasilnya didengar ulang
+oleh pengenal suara (faster-whisper); bila transkripnya tidak cocok dengan teks, kalimat direkam
+ulang dengan seed lain (maks. 6 kali) dan rekaman terbaik yang dipakai.
 
 Pemakaian:
   python voxcpm_record.py plan  <phrases.json> <manifest.js> <out.json> <shards>
@@ -28,9 +30,9 @@ REF_WAV = os.path.join(os.path.dirname(__file__), "voice-ref-c.wav")
 REF_TEXT = "Halo, adik-adik! Wah, hari ini kita akan belajar sambil bermain. Seru sekali, ya! Ayo, kita mulai!"
 SEED = 37
 TEMPO = 0.88
-NORMAL_RATE = 11.5   # huruf per detik (median rekaman Suara C sebelum diperlambat)
-MAX_RATE = 14.5      # lebih cepat dari ini = kemungkinan terpotong / terlalu cepat → coba seed lain
-TRIES = 4
+TRIES = 6            # percobaan maksimal per kalimat
+GOOD_SCORE = 0.85    # kemiripan transkrip (Whisper) dengan teks agar rekaman diterima
+MIN_ASR_LETTERS = 4  # huruf/suku kata tunggal tidak diperiksa (pengenal suara tidak andal untuk itu)
 REDO = os.path.join(os.path.dirname(__file__), "redo.json")
 
 SATUAN = ["nol", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"]
@@ -59,6 +61,21 @@ def synth_text(item) -> str:
     if re.fullmatch(r"[A-Z]\.", text):  # nama huruf: kunci sudah berupa ejaan Indonesia (mis. "cé")
         return key + "."
     return re.sub(r"\d+", lambda m: terbilang(int(m.group())), text)
+
+
+def letters_only(s: str) -> str:
+    s = re.sub(r"\d+", lambda m: terbilang(int(m.group())), s.lower())
+    return re.sub(r"[^a-z]", "", s.replace("é", "e").replace("è", "e"))
+
+
+def asr_score(asr, path, expected) -> float:
+    """Kemiripan (0–1) antara transkrip Whisper rekaman dan teks yang seharusnya."""
+    import difflib
+
+    segs, _ = asr.transcribe(path, language="id", beam_size=5)
+    heard = " ".join(seg.text for seg in segs)
+    a, b = letters_only(expected), letters_only(heard)
+    return difflib.SequenceMatcher(None, a, b).ratio() if a else 1.0
 
 
 def clip_name(key: str) -> str:
@@ -93,46 +110,53 @@ def cmd_plan(phrases_path, manifest_path, out_path, shards):
 def cmd_record(plan_path, shard, out_dir):
     import soundfile as sf
     import torch
+    from faster_whisper import WhisperModel
     from voxcpm import VoxCPM
 
     group = json.load(open(plan_path, encoding="utf-8"))["groups"][int(shard)]
     os.makedirs(out_dir, exist_ok=True)
     t0 = time.time()
     model = VoxCPM.from_pretrained("openbmb/VoxCPM2", load_denoiser=False, optimize=False, device="cpu")
+    asr = WhisperModel("small", device="cpu", compute_type="int8")
     sr = model.tts_model.sample_rate
     print(f"Model siap ({time.time() - t0:.0f} dtk). Merekam {len(group)} kalimat.", flush=True)
+    filt = (f"atempo={TEMPO},"
+            "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
+            "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
+            "loudnorm=I=-16:TP=-1.5:LRA=11")
     done = {}
     for i, it in enumerate(group, 1):
         text = synth_text(it)
         name = clip_name(it["key"])
+        check = len(letters_only(text)) >= MIN_ASR_LETTERS
         t = time.time()
-        letters = max(1, len(re.sub(r"[^a-zA-Zéè]", "", text)))
+        best = None  # (skor, path)
         try:
-            # Coba beberapa seed; pilih hasil dengan tempo bicara paling wajar (yang terlalu cepat
-            # biasanya terpotong).
-            best = None
-            for k in range(TRIES):
+            # Rekam, dengarkan ulang dengan Whisper, ulangi dengan seed lain bila tidak cocok.
+            for k in range(TRIES if check else 1):
                 torch.manual_seed(SEED + k)
-                w = model.generate(text=text, prompt_wav_path=REF_WAV, prompt_text=REF_TEXT, reference_wav_path=REF_WAV,
-                                   cfg_value=2.5, inference_timesteps=12,
-                                   max_len=40 + 4 * len(text))  # batas aman agar tidak "kebablasan"
-                rate = letters / max(0.1, len(w) / sr)
-                if best is None or abs(rate - NORMAL_RATE) < abs(best[1] - NORMAL_RATE):
-                    best = (w, rate)
-                if rate <= MAX_RATE or letters < 6:
+                wav = model.generate(text=text, prompt_wav_path=REF_WAV, prompt_text=REF_TEXT,
+                                     reference_wav_path=REF_WAV, cfg_value=2.5, inference_timesteps=12,
+                                     max_len=40 + 4 * len(text))  # batas aman agar tidak "kebablasan"
+                raw = os.path.join(out_dir, f"{name}.{k}.wav")
+                mp3 = os.path.join(out_dir, f"{name}.{k}.mp3")
+                sf.write(raw, wav, sr)
+                subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", raw, "-af", filt, "-ar", "24000",
+                                "-ac", "1", "-b:a", "48k", mp3], check=True)
+                os.remove(raw)
+                score = asr_score(asr, mp3, text) if check else 1.0
+                if best is None or score > best[0]:
+                    if best:
+                        os.remove(best[1])
+                    best = (score, mp3)
+                else:
+                    os.remove(mp3)
+                if score >= GOOD_SCORE:
                     break
-            wav, rate = best
-            tmp = os.path.join(out_dir, name + ".wav")
-            sf.write(tmp, wav, sr)
-            filt = (f"atempo={TEMPO},"
-                    "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
-                    "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
-                    "loudnorm=I=-16:TP=-1.5:LRA=11")
-            subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", tmp, "-af", filt, "-ar", "24000", "-ac", "1",
-                            "-b:a", "48k", os.path.join(out_dir, name)], check=True)
-            os.remove(tmp)
+            os.replace(best[1], os.path.join(out_dir, name))
             done[it["key"]] = name
-            print(f"[{i}/{len(group)}] {time.time() - t:5.0f} dtk  {rate:4.1f} huruf/dtk  {text}", flush=True)
+            flag = "" if best[0] >= GOOD_SCORE else "  ⚠ terbaik belum cocok"
+            print(f"[{i}/{len(group)}] {time.time() - t:5.0f} dtk  skor {best[0]:.2f}  {text}{flag}", flush=True)
         except Exception as e:  # noqa: BLE001 - satu kalimat gagal tidak menghentikan yang lain
             print(f"[{i}/{len(group)}] GAGAL {text!r}: {e}", flush=True)
     json.dump(done, open(os.path.join(out_dir, f"clips-{shard}.json"), "w", encoding="utf-8"), ensure_ascii=False)

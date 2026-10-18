@@ -7,21 +7,16 @@ terpotong atau salah ucap dengan membandingkan transkrip dengan teks seharusnya.
 import difflib
 import json
 import os
-import re
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from voxcpm_record import clip_name, read_manifest, synth_text  # noqa: E402
+from voxcpm_record import letters_only, read_manifest, synth_text  # noqa: E402
 from faster_whisper import WhisperModel  # noqa: E402
 
 phrases_path, audio_dir, out_path = sys.argv[1:4]
 items = json.load(open(phrases_path, encoding="utf-8"))
 clips, _ = read_manifest(os.path.join(audio_dir, "manifest.js"))
 model = WhisperModel("small", device="cpu", compute_type="int8")
-
-
-def norm(s):
-    return re.sub(r"[^a-z]", "", s.lower().replace("é", "e").replace("è", "e"))
 
 
 report = []
@@ -33,7 +28,7 @@ for it in items:
     segs, _ = model.transcribe(os.path.join(audio_dir, f), language="id", beam_size=5,
                                initial_prompt="Pelajaran anak: huruf, angka, hewan, warna.")
     heard = " ".join(s.text.strip() for s in segs)
-    a, b = norm(expected), norm(heard)
+    a, b = letters_only(expected), letters_only(heard)
     ratio = difflib.SequenceMatcher(None, a, b).ratio() if a else 1.0
     report.append({"key": it["key"], "expected": expected, "heard": heard, "score": round(ratio, 2), "letters": len(a)})
 

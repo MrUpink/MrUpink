@@ -77,7 +77,7 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
           pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-          pip install voxcpm
+          pip install voxcpm faster-whisper
       - name: Rekam kelompok ${{ matrix.shard }}
         run: python tools/voice/voxcpm_record.py record plan.json ${{ matrix.shard }} out
       - uses: actions/upload-artifact@v4
