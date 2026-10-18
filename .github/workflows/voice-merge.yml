@@ -1,0 +1,61 @@
+name: Gabungkan Rekaman Suara
+
+# Menggabungkan rekaman dari run "Rekam Suara" sebelumnya (tanpa merekam ulang), meng-commit,
+# lalu membangun APK. Dipakai bila langkah penggabungan run tersebut gagal.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: ID run "Rekam Suara" yang rekamannya akan digabungkan
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  AUDIO_DIR: app/src/main/assets/www/audio
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: voice-plan
+          path: plan
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: voice-shard-*
+          path: shards
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Gabungkan rekaman
+        run: |
+          [ -f tools/voice/voice-ref-a.wav ] || cp plan/tools/voice/voice-ref-a.wav tools/voice/voice-ref-a.wav
+          mkdir -p "$AUDIO_DIR"
+          find shards -name '*.mp3' -exec cp {} "$AUDIO_DIR/" \;
+          python3 tools/voice/voxcpm_record.py merge "$AUDIO_DIR" shards
+      - name: Commit rekaman
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -q --ignore-unmatch tools/voice/redo.json
+          git add -A "$AUDIO_DIR" tools/voice/voice-ref-a.wav
+          git commit -m "Rekam suara pemandu dengan VoxCPM2 (Suara A)" || echo "Tidak ada perubahan"
+          for i in 1 2 3; do git pull --rebase -q origin "$GITHUB_REF_NAME" && git push -q origin HEAD:"$GITHUB_REF_NAME" && break; sleep 5; done
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: merge
+    uses: ./.github/workflows/android.yml
+    with:
+      ref: ${{ needs.merge.outputs.sha }}

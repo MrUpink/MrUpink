@@ -1,0 +1,128 @@
+name: Rekam Suara (VoxCPM2 - Suara A)
+
+# Merekam semua kalimat aplikasi dengan VoxCPM2 (Apache-2.0, boleh komersial) memakai "Suara A",
+# dibagi ke banyak job paralel. Hasil di-commit ke app/src/main/assets/www/audio lalu APK dibangun.
+# Hanya kalimat yang belum punya rekaman yang direkam.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - tools/voice/phrases.js
+      - tools/voice/voxcpm_record.py
+      - tools/voice/redo.json
+      - .github/workflows/voice-record.yml
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: voice-record-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AUDIO_DIR: app/src/main/assets/www/audio
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      count: ${{ steps.plan.outputs.count }}
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Siapkan referensi Suara A
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f tools/voice/voice-ref-a.wav ]; then
+            command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+            # Suara wanita dari uji coba pertama (tempo asli)
+            gh run download 39083325034 -R "$GITHUB_REPOSITORY" -n contoh-suara-voxcpm2 -D trial
+            ffmpeg -loglevel error -y -i trial/00-suara-referensi.mp3 -ac 1 tools/voice/voice-ref-a.wav
+          fi
+      - name: Daftar kalimat yang perlu direkam
+        id: plan
+        run: |
+          node tools/voice/phrases.js > phrases.json
+          out=$(python3 tools/voice/voxcpm_record.py plan phrases.json "$AUDIO_DIR/manifest.js" plan.json 24)
+          echo "$out"
+          echo "count=$(echo "$out" | jq -r .count)" >> "$GITHUB_OUTPUT"
+          echo "shards=$(echo "$out" | jq -c .shards)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voice-plan
+          path: |
+            plan.json
+            tools/voice/voice-ref-a.wav
+
+  record:
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: voice-plan
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Pasang VoxCPM2 (CPU)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install voxcpm faster-whisper
+      - name: Rekam kelompok ${{ matrix.shard }}
+        run: python tools/voice/voxcpm_record.py record plan.json ${{ matrix.shard }} out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: voice-shard-${{ matrix.shard }}
+          path: out/
+
+  merge:
+    needs: [plan, record]
+    if: always() && needs.plan.outputs.count != '0'
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: voice-plan
+          path: plan
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: voice-shard-*
+          path: shards
+      - name: Gabungkan rekaman
+        run: |
+          [ -f tools/voice/voice-ref-a.wav ] || cp plan/tools/voice/voice-ref-a.wav tools/voice/voice-ref-a.wav
+          mkdir -p "$AUDIO_DIR"
+          find shards -name '*.mp3' -exec cp {} "$AUDIO_DIR/" \;
+          python3 tools/voice/voxcpm_record.py merge "$AUDIO_DIR" shards
+      - name: Commit rekaman
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -q --ignore-unmatch tools/voice/redo.json   # daftar rekam ulang sudah dikerjakan
+          git add -A "$AUDIO_DIR" tools/voice/voice-ref-a.wav
+          git commit -m "Rekam suara pemandu dengan VoxCPM2 (Suara A)" || echo "Tidak ada perubahan"
+          for i in 1 2 3; do git pull --rebase -q origin "$GITHUB_REF_NAME" && git push -q origin HEAD:"$GITHUB_REF_NAME" && break; sleep 5; done
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: merge
+    uses: ./.github/workflows/android.yml
+    with:
+      ref: ${{ needs.merge.outputs.sha }}

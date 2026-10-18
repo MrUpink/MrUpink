@@ -1,0 +1,29 @@
+name: Periksa Suara
+
+# Mentranskripsi semua rekaman suara (faster-whisper) dan melaporkan klip yang terpotong/salah ucap.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - tools/voice/check_clips.py
+      - .github/workflows/voice-check.yml
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install faster-whisper
+      - name: Periksa rekaman
+        run: |
+          node tools/voice/phrases.js > phrases.json
+          python tools/voice/check_clips.py phrases.json app/src/main/assets/www/audio laporan-suara.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: laporan-suara
+          path: laporan-suara.json

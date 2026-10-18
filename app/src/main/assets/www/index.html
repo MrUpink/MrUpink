@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#4dabf7">
+  <title>Pintar Ceria</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 1. Pilih umur -->
+  <section id="screen-age" class="screen active">
+    <header class="home-header">
+      <div class="brand">
+        <span class="brand-logo">🦉</span>
+        <div>
+          <h1>Pintar Ceria</h1>
+          <p>Belajar sambil bermain</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn btn-settings" aria-label="Pengaturan">⚙️</button>
+      </div>
+    </header>
+    <div class="scroll">
+      <h2 class="screen-title">Berapa umurmu? 🎂</h2>
+      <p class="screen-sub">Pilih umur anak. Pelajaran & tingkat kesulitan akan menyesuaikan.</p>
+      <div class="age-grid" id="age-grid"></div>
+    </div>
+  </section>
+
+  <!-- 2. Beranda: misi harian + kategori -->
+  <section id="screen-home" class="screen">
+    <header class="topbar">
+      <button class="age-pill" id="age-pill" aria-label="Ganti umur"></button>
+      <div class="pill streak" id="streak-pill" title="Hari belajar berturut-turut">🔥 <b id="streak-count">0</b></div>
+      <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
+      <button class="icon-btn btn-settings" aria-label="Pengaturan">⚙️</button>
+    </header>
+    <div class="scroll">
+      <div class="quest-card">
+        <div class="quest-head"><b>🎯 Misi Harian</b><span id="quest-date"></span></div>
+        <div id="quest-list"></div>
+        <button class="btn btn-yellow chest-btn hidden" id="btn-chest">🎁 Buka Hadiah!</button>
+      </div>
+      <h2 class="screen-title">Mau belajar apa hari ini?</h2>
+      <div class="cat-grid" id="cat-grid"></div>
+    </div>
+  </section>
+
+  <!-- 3. Jalur belajar (seperti Duolingo) -->
+  <section id="screen-path" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" data-back aria-label="Kembali">⬅️</button>
+      <h2 id="path-title"></h2>
+      <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
+    </header>
+    <div class="scroll" id="path-scroll">
+      <div id="path"></div>
+    </div>
+  </section>
+
+  <!-- 4. Bermain -->
+  <section id="screen-play" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" data-back aria-label="Kembali">⬅️</button>
+      <h2 id="play-title">Permainan</h2>
+      <div class="star-count"><span>⭐</span><b class="stars-total">0</b></div>
+    </header>
+    <div id="stage"></div>
+  </section>
+
+  <!-- Hasil pelajaran / ujian -->
+  <div id="reward" class="overlay hidden">
+    <div class="modal reward-modal">
+      <div class="trophy" id="reward-icon">🏆</div>
+      <h2 id="reward-title">Hebat Sekali!</h2>
+      <div class="reward-stars" id="reward-stars"></div>
+      <p id="reward-text"></p>
+      <div class="modal-actions" id="reward-actions"></div>
+    </div>
+  </div>
+
+  <!-- Pengaturan -->
+  <div id="settings" class="overlay hidden">
+    <div class="modal settings-modal">
+      <h2>⚙️ Pengaturan</h2>
+      <label class="toggle"><input type="checkbox" id="set-music"> <span>🎶 Musik latar</span></label>
+      <div class="field">
+        <label for="set-music-vol">Volume musik</label>
+        <input type="range" id="set-music-vol" min="0" max="1" step="0.05">
+      </div>
+      <label class="toggle"><input type="checkbox" id="set-sound"> <span>🔔 Efek suara</span></label>
+      <label class="toggle"><input type="checkbox" id="set-voice"> <span>🗣️ Suara pemandu</span></label>
+      <label class="toggle"><input type="checkbox" id="set-natural"> <span>🎙️ Suara natural (rekaman, offline)</span></label>
+      <p class="hint" id="natural-hint"></p>
+      <div class="field">
+        <label for="set-rate">Kecepatan bicara</label>
+        <input type="range" id="set-rate" min="0.7" max="1.2" step="0.05">
+      </div>
+      <div class="field">
+        <label for="set-voice-name">Suara HP (cadangan)</label>
+        <select id="set-voice-name"></select>
+        <p class="hint" id="voice-hint"></p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-blue btn-small" id="btn-test-voice">🔊 Tes Suara</button>
+        <button class="btn btn-yellow btn-small hidden" id="btn-tts-settings">📥 Unduh Suara HP</button>
+      </div>
+      <div class="parent-info">
+        <b>Untuk Orang Tua</b>
+        <p>Setiap kategori punya jalur belajar berisi unit. Selesaikan pelajaran satu per satu, lalu ikuti ujian di akhir unit untuk membuka unit berikutnya. Misi harian berganti setiap hari. Dampingi anak dan batasi waktu layar 15–30 menit per sesi.</p>
+      </div>
+      <details class="parent-info licenses">
+        <summary><b>📜 Lisensi & Atribusi</b></summary>
+        <p><b>Ikon emoji 3D</b> — Microsoft Fluent Emoji, © Microsoft Corporation, lisensi MIT (dikemas oleh LobeHub, MIT). Boleh dipakai untuk aplikasi komersial.</p>
+        <p><b>Font Fredoka</b> — © The Fredoka Project Authors, SIL Open Font License 1.1 (teks lisensi: fonts/OFL.txt).</p>
+        <p><b>Efek suara</b> — dibuat langsung oleh aplikasi (Web Audio), tanpa berkas pihak ketiga.</p>
+        <p><b>Musik latar "Ceria"</b> — komposisi asli Pintar Ceria, disintesis sendiri tanpa sampel pihak ketiga. Hak penuh milik pengembang.</p>
+        <p><b>Suara pemandu</b> — direkam dengan model VoxCPM2 © OpenBMB, lisensi Apache-2.0. Suara dirancang dengan voice design (bukan tiruan suara orang sungguhan).</p>
+        <p class="mit">MIT License — Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>
+      </details>
+      <div class="modal-actions">
+        <button class="btn btn-red btn-small" id="btn-reset">🗑️ Reset Progres</button>
+        <button class="btn btn-green" id="btn-close-settings">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <div id="confetti-layer"></div>
+
+  <script src="audio/manifest.js"></script>
+  <script src="js/emoji-map.js"></script>
+  <script src="js/emoji.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/games-huruf.js"></script>
+  <script src="js/games-angka.js"></script>
+  <script src="js/games-motorik.js"></script>
+  <script src="js/games-logika.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
