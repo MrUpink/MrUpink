@@ -2,9 +2,9 @@
 """Merekam suara pemandu aplikasi dengan VoxCPM2 (Apache-2.0) memakai "Suara A".
 
 Suara A = suara wanita dari uji coba pertama (voice design, seed 7), referensinya disimpan di
-tools/voice/voice-ref-a.wav. Setiap kalimat dibuat dengan voice cloning + continuation dari referensi
-itu (tanda baca dipertahankan agar jeda & intonasi alami), lalu diperlambat ke 85% dan jeda hening di
-awal/akhir dipotong. Hasilnya didengar ulang
+tools/voice/voice-ref-a.wav. Setiap kalimat dibuat dengan voice cloning murni dari referensi itu (tanpa continuation, agar sisa
+kalimat referensi tidak ikut terucap; tanda baca dipertahankan agar jeda & intonasi alami), lalu
+diperlambat ke 85% dan jeda hening di awal/akhir dipotong. Hasilnya didengar ulang
 oleh pengenal suara (faster-whisper); bila transkripnya tidak cocok dengan teks, kalimat direkam
 ulang dengan seed lain (maks. 6 kali) dan rekaman terbaik yang dipakai.
 
@@ -26,12 +26,12 @@ import subprocess
 import sys
 import time
 
-VOICE_ID = "voxcpm2-a"
+VOICE_ID = "voxcpm2-a2"
 REF_WAV = os.path.join(os.path.dirname(__file__), "voice-ref-a.wav")
 REF_TEXT = "Halo adik-adik! Ayo kita belajar membaca dan berhitung bersama hari ini."
 SEED = 7
 TEMPO = 0.85
-TRIES = 6            # percobaan maksimal per kalimat
+TRIES = 8            # percobaan maksimal per kalimat
 GOOD_SCORE = 0.85    # kemiripan transkrip (Whisper) dengan teks agar rekaman diterima
 MIN_ASR_LETTERS = 4  # huruf/suku kata tunggal tidak diperiksa (pengenal suara tidak andal untuk itu)
 REDO = os.path.join(os.path.dirname(__file__), "redo.json")
@@ -69,14 +69,33 @@ def letters_only(s: str) -> str:
     return re.sub(r"[^a-z]", "", s.replace("é", "e").replace("è", "e"))
 
 
-def asr_score(asr, path, expected) -> float:
-    """Kemiripan (0–1) antara transkrip Whisper rekaman dan teks yang seharusnya."""
+def asr_check(asr, path, expected):
+    """Periksa rekaman dengan Whisper.
+
+    Mengembalikan (lolos, skor, keterangan):
+      - skor   : kemiripan transkrip (dipaksa Bahasa Indonesia) dengan teks seharusnya (0–1)
+      - bahasa : bahasa yang terdeteksi tanpa dipaksa harus 'id' (bukan Melayu/Inggris) untuk kalimat ≥8 huruf
+      - awalan : tidak boleh ada bunyi tambahan di awal (mis. "dan", "dat") sebelum kata pertama
+    """
     import difflib
 
+    a = letters_only(expected)
     segs, _ = asr.transcribe(path, language="id", beam_size=5)
-    heard = " ".join(seg.text for seg in segs)
-    a, b = letters_only(expected), letters_only(heard)
-    return difflib.SequenceMatcher(None, a, b).ratio() if a else 1.0
+    heard = letters_only(" ".join(seg.text for seg in segs))
+    score = difflib.SequenceMatcher(None, a, heard).ratio() if a else 1.0
+    notes = []
+    head = a[:4]
+    pos = heard.find(head) if head else 0
+    if pos >= 2:
+        notes.append(f"awalan '{heard[:pos]}'")
+    if len(a) >= 8:
+        _, info = asr.transcribe(path, beam_size=1)  # deteksi bahasa bebas
+        lang = info.language
+        probs = dict(info.all_language_probs or [])
+        if lang != "id" and probs.get("id", 0) < 0.3:
+            notes.append(f"bahasa {lang} {probs.get(lang, 0):.2f}")
+    ok = score >= GOOD_SCORE and not notes
+    return ok, score, ", ".join(notes)
 
 
 def clip_name(key: str) -> str:
@@ -130,13 +149,13 @@ def cmd_record(plan_path, shard, out_dir):
         name = clip_name(it["key"])
         check = len(letters_only(text)) >= MIN_ASR_LETTERS
         t = time.time()
-        best = None  # (skor, path)
+        best = None  # (lolos, skor, path, keterangan)
         try:
-            # Rekam, dengarkan ulang dengan Whisper, ulangi dengan seed lain bila tidak cocok.
+            # Rekam, dengarkan ulang dengan Whisper, ulangi dengan seed lain bila tidak lolos.
             for k in range(TRIES if check else 1):
                 torch.manual_seed(SEED + k)
-                wav = model.generate(text=text, prompt_wav_path=REF_WAV, prompt_text=REF_TEXT,
-                                     reference_wav_path=REF_WAV, cfg_value=2.0, inference_timesteps=10,
+                # Kloning murni (tanpa continuation) agar sisa kalimat referensi tidak ikut terucap
+                wav = model.generate(text=text, reference_wav_path=REF_WAV, cfg_value=2.0, inference_timesteps=10,
                                      max_len=40 + 4 * len(text))  # batas aman agar tidak "kebablasan"
                 raw = os.path.join(out_dir, f"{name}.{k}.wav")
                 mp3 = os.path.join(out_dir, f"{name}.{k}.mp3")
@@ -144,19 +163,19 @@ def cmd_record(plan_path, shard, out_dir):
                 subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", raw, "-af", filt, "-ar", "24000",
                                 "-ac", "1", "-b:a", "48k", mp3], check=True)
                 os.remove(raw)
-                score = asr_score(asr, mp3, text) if check else 1.0
-                if best is None or score > best[0]:
+                ok, score, note = asr_check(asr, mp3, text) if check else (True, 1.0, "")
+                if best is None or (ok, score) > (best[0], best[1]):
                     if best:
-                        os.remove(best[1])
-                    best = (score, mp3)
+                        os.remove(best[2])
+                    best = (ok, score, mp3, note)
                 else:
                     os.remove(mp3)
-                if score >= GOOD_SCORE:
+                if ok:
                     break
-            os.replace(best[1], os.path.join(out_dir, name))
+            os.replace(best[2], os.path.join(out_dir, name))
             done[it["key"]] = name
-            flag = "" if best[0] >= GOOD_SCORE else "  ⚠ terbaik belum cocok"
-            print(f"[{i}/{len(group)}] {time.time() - t:5.0f} dtk  skor {best[0]:.2f}  {text}{flag}", flush=True)
+            flag = "" if best[0] else f"  ⚠ terbaik belum lolos ({best[3]})"
+            print(f"[{i}/{len(group)}] {time.time() - t:5.0f} dtk  skor {best[1]:.2f}  {text}{flag}", flush=True)
         except Exception as e:  # noqa: BLE001 - satu kalimat gagal tidak menghentikan yang lain
             print(f"[{i}/{len(group)}] GAGAL {text!r}: {e}", flush=True)
     json.dump(done, open(os.path.join(out_dir, f"clips-{shard}.json"), "w", encoding="utf-8"), ensure_ascii=False)
