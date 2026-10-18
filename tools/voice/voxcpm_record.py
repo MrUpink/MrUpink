@@ -2,8 +2,10 @@
 """Merekam suara pemandu aplikasi dengan VoxCPM2 (Apache-2.0) memakai "Suara A".
 
 Suara A = suara wanita dari uji coba pertama (voice design, seed 7), referensinya disimpan di
-tools/voice/voice-ref-a.wav. Setiap kalimat dibuat dengan voice cloning murni dari referensi itu (tanpa continuation, agar sisa
-kalimat referensi tidak ikut terucap; tanda baca dipertahankan agar jeda & intonasi alami), lalu
+tools/voice/voice-ref-a.wav. Setiap kalimat dibuat dengan voice cloning + continuation dari referensi itu
+(uji perbandingan: logat Indonesia jauh lebih terjaga dibanding kloning murni; tanda baca dipertahankan
+agar jeda & intonasi alami). Bunyi sisa di awal (mis. "dan"/"dat") dibuang: potongan pendek sebelum jeda
+di awal rekaman, dan kata tambahan sebelum kata pertama menurut stempel waktu Whisper. Lalu
 diperlambat ke 85% dan jeda hening di awal/akhir dipotong. Hasilnya didengar ulang
 oleh pengenal suara (faster-whisper); bila transkripnya tidak cocok dengan teks, kalimat direkam
 ulang dengan seed lain (maks. 6 kali) dan rekaman terbaik yang dipakai.
@@ -26,7 +28,7 @@ import subprocess
 import sys
 import time
 
-VOICE_ID = "voxcpm2-a2"
+VOICE_ID = "voxcpm2-a3"
 REF_WAV = os.path.join(os.path.dirname(__file__), "voice-ref-a.wav")
 REF_TEXT = "Halo adik-adik! Ayo kita belajar membaca dan berhitung bersama hari ini."
 SEED = 7
@@ -80,10 +82,19 @@ def asr_check(asr, path, expected):
     import difflib
 
     a = letters_only(expected)
-    segs, _ = asr.transcribe(path, language="id", beam_size=5)
-    heard = letters_only(" ".join(seg.text for seg in segs))
+    segs, _ = asr.transcribe(path, language="id", beam_size=5, word_timestamps=True)
+    words = [w for seg in segs for w in (seg.words or [])]
+    heard = letters_only(" ".join(w.word for w in words))
     score = difflib.SequenceMatcher(None, a, heard).ratio() if a else 1.0
     notes = []
+    # Kata tambahan sebelum kata pertama → titik potong (detik) agar bisa dibuang
+    cut = None
+    first = letters_only(expected.split()[0])[:3] if expected.split() else ""
+    for idx, w in enumerate(words[:4]):
+        if first and letters_only(w.word).startswith(first):
+            if idx > 0:
+                cut = max(0.0, w.start - 0.06)
+            break
     head = a[:4]
     pos = heard.find(head) if head else 0
     if pos >= 2:
@@ -95,7 +106,33 @@ def asr_check(asr, path, expected):
         if lang != "id" and probs.get("id", 0) < 0.3:
             notes.append(f"bahasa {lang} {probs.get(lang, 0):.2f}")
     ok = score >= GOOD_SCORE and not notes
-    return ok, score, ", ".join(notes)
+    return ok, score, ", ".join(notes), cut
+
+
+def trim_lead_blip(wav, sr):
+    """Buang bunyi pendek (< 0,15 dtk) di awal yang diikuti jeda — sisa referensi seperti "dan"/"dat"."""
+    import numpy as np
+
+    hop = int(sr * 0.01)
+    n = len(wav) // hop
+    if n < 10:
+        return wav
+    rms = np.sqrt(np.mean(wav[: n * hop].reshape(n, hop) ** 2, axis=1))
+    voiced = rms > max(rms.max() * 0.06, 1e-4)
+    idx = np.flatnonzero(voiced)
+    if not len(idx):
+        return wav
+    start = idx[0]
+    end = start
+    while end < n and voiced[end]:
+        end += 1
+    gap = end
+    while gap < n and not voiced[gap]:
+        gap += 1
+    rest = voiced[gap:].sum()
+    if (end - start) < 15 and (gap - end) >= 10 and rest >= 20:
+        return wav[max(0, gap - 3) * hop:]
+    return wav
 
 
 def clip_name(key: str) -> str:
@@ -154,16 +191,23 @@ def cmd_record(plan_path, shard, out_dir):
             # Rekam, dengarkan ulang dengan Whisper, ulangi dengan seed lain bila tidak lolos.
             for k in range(TRIES if check else 1):
                 torch.manual_seed(SEED + k)
-                # Kloning murni (tanpa continuation) agar sisa kalimat referensi tidak ikut terucap
-                wav = model.generate(text=text, reference_wav_path=REF_WAV, cfg_value=2.0, inference_timesteps=10,
+                wav = model.generate(text=text, reference_wav_path=REF_WAV, prompt_wav_path=REF_WAV,
+                                     prompt_text=REF_TEXT, cfg_value=2.0, inference_timesteps=10,
                                      max_len=40 + 4 * len(text))  # batas aman agar tidak "kebablasan"
+                wav = trim_lead_blip(wav, sr)
                 raw = os.path.join(out_dir, f"{name}.{k}.wav")
                 mp3 = os.path.join(out_dir, f"{name}.{k}.mp3")
                 sf.write(raw, wav, sr)
                 subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", raw, "-af", filt, "-ar", "24000",
                                 "-ac", "1", "-b:a", "48k", mp3], check=True)
                 os.remove(raw)
-                ok, score, note = asr_check(asr, mp3, text) if check else (True, 1.0, "")
+                ok, score, note, cut = asr_check(asr, mp3, text) if check else (True, 1.0, "", None)
+                if cut:  # buang kata tambahan di awal, lalu periksa lagi
+                    cutmp3 = mp3[:-4] + ".cut.mp3"
+                    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", f"{cut:.2f}", "-i", mp3,
+                                    "-b:a", "48k", cutmp3], check=True)
+                    os.replace(cutmp3, mp3)
+                    ok, score, note, _ = asr_check(asr, mp3, text)
                 if best is None or (ok, score) > (best[0], best[1]):
                     if best:
                         os.remove(best[2])

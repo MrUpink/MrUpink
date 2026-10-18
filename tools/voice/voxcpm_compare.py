@@ -45,7 +45,7 @@ for i, it in enumerate(sample, 1):
         sf.write(raw, wav, sr)
         subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", raw, "-af", filt, "-ac", "1", "-b:a", "48k", mp3],
                        check=True)
-        ok, score, note = asr_check(asr, mp3, text)
+        ok, score, note, _ = asr_check(asr, mp3, text)
         st = stats[mode]
         st["lolos"] += ok
         st["awalan"] += "awalan" in note
