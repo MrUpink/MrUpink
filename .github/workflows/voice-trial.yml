@@ -4,6 +4,10 @@ name: Uji Suara VoxCPM2
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   trial:
     runs-on: ubuntu-latest
@@ -18,10 +22,14 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
           pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
           pip install voxcpm
+      - name: Ambil suara referensi dari uji coba pertama
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39083325034 -R "$GITHUB_REPOSITORY" -n contoh-suara-voxcpm2 -D trial1
       - name: Buat contoh suara
-        run: python tools/voice/voxcpm_trial.py voxcpm-trial
+        run: python tools/voice/voxcpm_trial.py voxcpm-trial trial1/00-suara-referensi.mp3
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: contoh-suara-voxcpm2
+          name: contoh-suara-A
           path: voxcpm-trial/*.mp3

@@ -1,36 +1,22 @@
 #!/usr/bin/env python3
-"""Uji coba suara VoxCPM2 (Apache-2.0, boleh komersial, jalan offline tanpa akun).
+"""Uji coba suara VoxCPM2 (Apache-2.0) — "Suara A" (suara wanita dari uji coba pertama).
 
-Untuk setiap kandidat suara (A, B, C):
-1. Membuat "suara guru" lewat voice design (deskripsi teks) dengan seed tetap, memakai kalimat
-   referensi yang ekspresif agar gaya ceria & intonasi naik-turun ikut ditiru.
-2. Memakai suara itu sebagai referensi (voice cloning + continuation) untuk contoh kalimat aplikasi.
-3. Memperlambat tempo (atempo) tanpa mengubah tinggi nada.
-Hasil: <out>/<kandidat>-*.mp3 dan waktu pembuatan per klip.
+Referensi: 00-suara-referensi.mp3 dari uji coba pertama (voice design, seed 7). Setiap contoh kalimat
+dibuat dengan pengaturan yang sama seperti uji coba pertama, lalu disimpan dalam beberapa kecepatan
+agar bisa dipilih yang paling enak didengar anak.
+  python voxcpm_trial.py <out_dir> <ref.mp3>
 """
 import os
 import subprocess
 import sys
-import time
 
 import soundfile as sf
 import torch
 from voxcpm import VoxCPM
 
-OUT = sys.argv[1] if len(sys.argv) > 1 else "voxcpm-trial"
-TEMPO = 0.88  # < 1 = lebih lambat
-os.makedirs(OUT, exist_ok=True)
-
-CANDIDATES = {
-    "A": ("(A very cheerful, bright young Indonesian woman with a big smile in her voice, lively and "
-          "expressive intonation that rises and falls, speaking slowly and clearly to small children, "
-          "like a fun kindergarten teacher telling a story)", 11),
-    "B": ("(An energetic, playful and warm young Indonesian female voice, enthusiastic and full of joy, "
-          "very expressive melodic intonation, slow clear pace, like a children's TV show host)", 23),
-    "C": ("(A gentle, sweet and cheerful Indonesian woman, soft but lively, warm expressive storytelling "
-          "voice with natural pauses, speaking slowly and patiently to young kids)", 37),
-}
-REF_TEXT = "Halo, adik-adik! Wah, hari ini kita akan belajar sambil bermain. Seru sekali, ya! Ayo, kita mulai!"
+OUT, REF_MP3 = sys.argv[1], sys.argv[2]
+REF_TEXT = "Halo adik-adik! Ayo kita belajar membaca dan berhitung bersama hari ini."
+SPEEDS = {"A-asli": 1.0, "B-90persen": 0.9, "C-85persen": 0.85}
 SAMPLES = [
     "Halo! Ayo kita belajar bersama.",
     "Mana huruf kecil, bé?",
@@ -39,39 +25,21 @@ SAMPLES = [
     "Hebat sekali! Kamu dapat tiga bintang.",
     "Selamat! Kamu lulus ujian!",
 ]
+os.makedirs(OUT, exist_ok=True)
+ref_wav = os.path.join(OUT, "ref.wav")
+subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", REF_MP3, "-ac", "1", ref_wav], check=True)
 
-
-def save(wav, sr, name, tempo=TEMPO):
-    wav_path = os.path.join(OUT, name + ".wav")
-    sf.write(wav_path, wav, sr)
-    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", wav_path, "-filter:a", f"atempo={tempo}",
-                    "-ac", "1", "-b:a", "64k", os.path.join(OUT, name + ".mp3")], check=True)
-    return wav_path
-
-
-t0 = time.time()
 model = VoxCPM.from_pretrained("openbmb/VoxCPM2", load_denoiser=False, optimize=False, device="cpu")
 sr = model.tts_model.sample_rate
-print(f"Model dimuat dalam {time.time() - t0:.0f} dtk, sample rate {sr}", flush=True)
-
-total, count = 0.0, 0
-for cand, (design, seed) in CANDIDATES.items():
-    torch.manual_seed(seed)
-    ref = model.generate(text=design + REF_TEXT, cfg_value=2.5, inference_timesteps=12)
-    # Referensi disimpan tanpa diperlambat (dipakai untuk cloning), versi lambatnya untuk didengar
-    ref_path = os.path.join(OUT, f"{cand}-ref.wav")
-    sf.write(ref_path, ref, sr)
-    save(ref, sr, f"{cand}-00-referensi")
-    for i, text in enumerate(SAMPLES, 1):
-        torch.manual_seed(seed)
-        t = time.time()
-        wav = model.generate(text=text, prompt_wav_path=ref_path, prompt_text=REF_TEXT,
-                             reference_wav_path=ref_path, cfg_value=2.5, inference_timesteps=12)
-        dt = time.time() - t
-        total += dt
-        count += 1
-        save(wav, sr, f"{cand}-{i:02d}-" + "".join(c if c.isalnum() else "_" for c in text)[:36])
-        print(f"[{cand}] {dt:5.1f} dtk  {len(wav) / sr:4.1f} dtk audio  {text}", flush=True)
-
-avg = total / count
-print(f"Rata-rata {avg:.1f} dtk/klip → perkiraan 634 klip: {avg * 634 / 60:.0f} menit")
+for i, text in enumerate(SAMPLES, 1):
+    torch.manual_seed(7)
+    wav = model.generate(text=text, prompt_wav_path=ref_wav, prompt_text=REF_TEXT,
+                         reference_wav_path=ref_wav, cfg_value=2.0, inference_timesteps=10)
+    raw = os.path.join(OUT, "tmp.wav")
+    sf.write(raw, wav, sr)
+    slug = "".join(c if c.isalnum() else "_" for c in text)[:32]
+    for label, speed in SPEEDS.items():
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", raw, "-filter:a", f"atempo={speed}",
+                        "-ac", "1", "-b:a", "64k", os.path.join(OUT, f"{label}-{i:02d}-{slug}.mp3")], check=True)
+    print(f"[{i}/{len(SAMPLES)}] {text}", flush=True)
+os.remove(raw)
