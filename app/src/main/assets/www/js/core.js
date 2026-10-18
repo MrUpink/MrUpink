@@ -256,7 +256,7 @@ const Music = (() => {
     }, 40);
   }
   function setMode(m) { if (m !== mode) { mode = m; apply(); } }
-  document.addEventListener('visibilitychange', apply);
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', apply);
   return { apply, setMode };
 })();
 
