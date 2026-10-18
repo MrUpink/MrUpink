@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import config, pipeline, trends, uploader
+from . import config, niches, pipeline, trends, uploader
 
 app = FastAPI(title="AutoTube")
 STATIC = Path(__file__).parent / "static"
@@ -78,11 +78,25 @@ def get_trends(mode: str = "niche", q: str = "") -> list[dict]:
 
 class NewJob(BaseModel):
     topic: str = ""
+    format: str = ""
 
 
 @app.post("/api/jobs", dependencies=[Depends(auth)])
 def new_job(body: NewJob) -> dict:
-    return pipeline.create(body.topic.strip())
+    return pipeline.create(body.topic.strip(), fmt=body.format)
+
+
+@app.get("/api/niches", dependencies=[Depends(auth)])
+def get_niches() -> dict:
+    return {"current": config.load_settings()["niche"], "curated": niches.CURATED, "ai": niches.cached_ai()}
+
+
+@app.post("/api/niches/recommend", dependencies=[Depends(auth)])
+def recommend_niches() -> dict:
+    try:
+        return niches.ai_recommend()
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.get("/api/jobs", dependencies=[Depends(auth)])

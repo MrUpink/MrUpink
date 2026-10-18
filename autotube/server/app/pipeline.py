@@ -1,5 +1,6 @@
 """Alur otomatis: riset tren → naskah → suara → stok video → render → upload, plus autopilot terjadwal."""
 import json
+import os
 import shutil
 import threading
 import time
@@ -23,8 +24,12 @@ def _job_file(job_id: str) -> Path:
 
 
 def save(job: dict) -> None:
+    # Tulis ke file sementara lalu ganti, agar pembaca tidak pernah melihat file setengah jadi.
     with _jobs_lock:
-        _job_file(job["id"]).write_text(json.dumps(job, indent=2, ensure_ascii=False))
+        f = _job_file(job["id"])
+        tmp = f.with_suffix(".tmp")
+        tmp.write_text(json.dumps(job, indent=2, ensure_ascii=False))
+        os.replace(tmp, f)
 
 
 def get(job_id: str) -> dict | None:
@@ -47,10 +52,11 @@ def _step(job: dict, status: str, msg: str) -> None:
     save(job)
 
 
-def create(topic_hint: str = "", source: str = "manual") -> dict:
+def create(topic_hint: str = "", source: str = "manual", fmt: str = "") -> dict:
     job_id = datetime.now().strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:4]
     (config.JOBS_DIR / job_id).mkdir(parents=True)
-    job = {"id": job_id, "created": _now(), "source": source, "topic_hint": topic_hint,
+    fmt = fmt if fmt in media.SIZES else config.load_settings()["format"]
+    job = {"id": job_id, "created": _now(), "source": source, "topic_hint": topic_hint, "format": fmt,
            "status": "queued", "log": [], "plan": None, "video": None, "youtube_id": None, "error": None}
     save(job)
     threading.Thread(target=_run, args=(job_id,), daemon=True).start()
@@ -61,6 +67,7 @@ def _run(job_id: str) -> None:
     job = get(job_id)
     settings = config.load_settings()
     work = config.JOBS_DIR / job_id
+    fmt = job["format"]
     try:
         with _render_lock:
             _step(job, "researching", "Riset tren…")
@@ -71,8 +78,9 @@ def _run(job_id: str) -> None:
                 job["log"].append(f"Tren dilewati: {e}")
             recent = [j["plan"]["topic"] for j in list_jobs() if j.get("plan")][:30]
 
-            _step(job, "writing", f"Menulis naskah orisinal dari {len(signals)} sinyal tren…")
-            plan = writer.make_plan(settings, signals, recent, job["topic_hint"])
+            kind = "Shorts" if fmt == "short" else "video panjang"
+            _step(job, "writing", f"Menulis naskah {kind} orisinal dari {len(signals)} sinyal tren…")
+            plan = writer.make_plan(settings, fmt, signals, recent, job["topic_hint"])
             job["plan"] = plan
             _step(job, "voicing", f"Judul: {plan['title']} — membuat suara…")
 
@@ -85,20 +93,20 @@ def _run(job_id: str) -> None:
 
             _step(job, "footage", "Mencari stok video bebas lisensi…")
             for i, sc in enumerate(scenes):
-                sc["clip"] = media.find_footage(sc["footage_query"], settings["format"], used, work / f"c{i}.mp4")
+                sc["clip"] = media.find_footage(sc["footage_query"], fmt, used, work / f"c{i}.mp4")
 
             _step(job, "rendering", "Merender video…")
             parts = []
             for i, sc in enumerate(scenes):
                 part = work / f"s{i}.mp4"
-                media.render_scene(sc["clip"], sc["audio"], sc["duration"], settings["format"], part)
+                media.render_scene(sc["clip"], sc["audio"], sc["duration"], fmt, part)
                 parts.append(part)
             subs = work / "subs.ass"
-            media.write_subtitles(scenes, settings["format"], subs)
+            media.write_subtitles(scenes, fmt, subs)
             final = work / "video.mp4"
             media.assemble(parts, subs, final)
             for p in work.iterdir():  # buang file sementara, simpan video & job.json
-                if p.name not in ("video.mp4", "job.json"):
+                if p.name not in ("video.mp4", "job.json", "job.tmp"):
                     p.unlink()
             job["video"] = final.name
             job["duration"] = round(media.duration(final), 1)
@@ -117,7 +125,7 @@ def upload(job_id: str) -> dict:
     settings = config.load_settings()
     _step(job, "uploading", "Upload ke YouTube…")
     try:
-        job["youtube_id"] = uploader.upload(str(config.JOBS_DIR / job_id / job["video"]), job["plan"], settings)
+        job["youtube_id"] = uploader.upload(str(config.JOBS_DIR / job_id / job["video"]), job["plan"], settings, job["format"])
         _step(job, "uploaded", f"Terupload: https://youtu.be/{job['youtube_id']} ({settings['privacy']})")
     except Exception as e:
         job["error"] = str(e)
@@ -131,20 +139,28 @@ def autopilot_state() -> dict:
     s = config.load_settings()
     auto = [j for j in list_jobs() if j["source"] == "autopilot"]
     today = datetime.now(timezone.utc).date().isoformat()
-    made_today = sum(1 for j in auto if j["created"].startswith(today) and j["status"] != "failed")
+    made = {"short": 0, "long": 0}
+    for j in auto:
+        if j["created"].startswith(today) and j["status"] != "failed":
+            made[j.get("format", "short")] += 1
+    limits = {"short": s["daily_shorts"], "long": s["daily_long"]}
+    # Pilih format yang kuotanya paling tertinggal, video panjang lebih dulu bila seimbang.
+    open_formats = [f for f in ("long", "short") if made[f] < limits[f]]
+    next_format = min(open_formats, key=lambda f: made[f] / limits[f]) if open_formats else None
     last = datetime.fromisoformat(auto[0]["created"]).timestamp() if auto else 0
     next_run = last + s["interval_hours"] * 3600
     busy = any(j["status"] not in ("rendered", "uploaded", "failed") for j in list_jobs())
-    return {"enabled": s["autopilot"], "made_today": made_today, "daily_limit": s["daily_limit"],
+    return {"enabled": s["autopilot"], "made": made, "limits": limits, "next_format": next_format,
             "next_run": datetime.fromtimestamp(max(next_run, time.time()), timezone.utc).isoformat(timespec="seconds"),
-            "due": s["autopilot"] and not busy and made_today < s["daily_limit"] and time.time() >= next_run}
+            "due": s["autopilot"] and not busy and next_format is not None and time.time() >= next_run}
 
 
 def _autopilot_loop() -> None:
     while True:
         try:
-            if autopilot_state()["due"]:
-                create(source="autopilot")
+            state = autopilot_state()
+            if state["due"]:
+                create(source="autopilot", fmt=state["next_format"])
         except Exception:
             traceback.print_exc()
         time.sleep(60)

@@ -25,12 +25,15 @@ DEFAULT_SETTINGS = {
     "language": "Bahasa Indonesia",
     "region": "ID",
     "category_id": "",  # kosong = semua kategori
-    "format": "short",  # short (9:16, <60 dtk) | long (16:9, 3-6 menit)
+    "format": "short",  # format default untuk "Buat video sekarang": short (9:16) | long (16:9)
     "voice": "id-ID-ArdiNeural",
     "voice_rate": "+5%",
     "autopilot": False,
     "interval_hours": 6,
-    "daily_limit": 3,
+    # Campuran paling realistis untuk monetisasi: Shorts menarik subscriber,
+    # video panjang mengumpulkan jam tayang dan RPM jauh lebih tinggi.
+    "daily_shorts": 2,
+    "daily_long": 1,
     "auto_upload": True,
     "privacy": "public",  # public | unlisted | private
     "ai_disclosure": True,  # tandai "konten sintetis" di YouTube

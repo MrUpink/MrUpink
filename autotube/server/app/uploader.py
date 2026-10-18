@@ -55,9 +55,9 @@ def channel_info() -> dict | None:
     return {"title": items[0]["snippet"]["title"], "subscribers": items[0]["statistics"].get("subscriberCount")}
 
 
-def upload(video_path: str, plan: dict, settings: dict) -> str:
+def upload(video_path: str, plan: dict, settings: dict, fmt: str) -> str:
     title, description = plan["title"][:100], plan["description"]
-    if settings["format"] == "short" and "#shorts" not in (title + description).lower():
+    if fmt == "short" and "#shorts" not in (title + description).lower():
         description += "\n\n#Shorts"
     body = {
         "snippet": {"title": title, "description": description[:5000], "tags": plan["tags"][:15],

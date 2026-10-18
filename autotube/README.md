@@ -11,7 +11,11 @@ ke channel YouTube Anda sendiri:
 4. **Footage**: stok video bebas lisensi dari Pexels (boleh dipakai komersial), dipilih per scene.
 5. **Render**: ffmpeg merakit video 9:16 (Shorts) atau 16:9 dengan subtitle besar gaya Shorts.
 6. **Upload** ke channel Anda lewat YouTube API (OAuth), lengkap dengan label konten AI.
-7. **Autopilot**: berjalan sendiri tiap N jam, dengan batas jumlah video per hari.
+7. **Autopilot campuran**: default **2 Shorts + 1 video panjang per hari**. Shorts menarik subscriber,
+   video panjang mengumpulkan jam tayang (syarat 4.000 jam) dan RPM-nya jauh lebih tinggi.
+   Ini jalur monetisasi yang paling realistis.
+8. **Tab Niche**: 8 niche faceless pilihan (perkiraan potensi penghasilan, persaingan, risiko, contoh judul),
+   rekomendasi AI dari video trending terbaru (± $0.04 per analisis), dan tombol untuk menetapkan niche.
 
 Video yang dihasilkan adalah karya baru (naskah, suara, dan susunan sendiri, footage berlisensi),
 **bukan** unduhan atau salinan video orang lain.
@@ -35,7 +39,7 @@ HP (APK AutoTube) ──► Server AutoTube (Docker) ──► Claude · YouTube
 Di **OAuth consent screen**, tambahkan email Google Anda sebagai *Test user* (cukup untuk pemakaian pribadi).
 
 > Catatan kuota: upload lewat API memakai ±1.600 unit dari kuota default 10.000 unit/hari, jadi
-> maksimal sekitar 6 upload per hari. Batas default autopilot 3 video/hari.
+> maksimal sekitar 6 upload per hari. Default autopilot 3 video/hari (2 Shorts + 1 panjang).
 
 ## 2. Jalankan server online
 
@@ -70,7 +74,7 @@ Saat pertama dibuka:
 1. Isi alamat server (tekan lama layar untuk menggantinya nanti).
 2. Masukkan `APP_TOKEN`.
 3. Tab **Pengaturan** → **Hubungkan YouTube** → login Google di browser.
-4. Atur niche, format, suara, jadwal → **Simpan**.
+4. Tab **Niche** → pilih niche (atau minta rekomendasi AI). Tab **Pengaturan** → atur suara & jadwal → **Simpan**.
 5. Tab **Beranda** → nyalakan **Autopilot**, atau tekan **Buat video sekarang**.
 
 ## Tips agar channel aman & bisa dimonetisasi
@@ -87,7 +91,8 @@ Saat pertama dibuka:
 autotube/
 ├── server/                FastAPI + pipeline
 │   ├── app/trends.py      riset tren (YouTube Data API)
-│   ├── app/writer.py      naskah orisinal (Claude)
+│   ├── app/niches.py      daftar & rekomendasi niche
+│   ├── app/writer.py      naskah orisinal + rekomendasi niche (Claude)
 │   ├── app/media.py       suara, stok video, render ffmpeg
 │   ├── app/uploader.py    OAuth + upload YouTube
 │   ├── app/pipeline.py    alur job + autopilot

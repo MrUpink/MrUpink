@@ -73,6 +73,7 @@
     <h1>Auto<span>Tube</span></h1>
     <nav>
       <button data-tab="home" class="on">Beranda</button>
+      <button data-tab="niche">Niche</button>
       <button data-tab="trends">Tren</button>
       <button data-tab="settings">Pengaturan</button>
     </nav>
@@ -92,11 +93,31 @@
       <div class="card">
         <label for="topic" style="margin-top:0">Topik khusus (opsional, kosongkan agar AI memilih dari tren)</label>
         <input id="topic" placeholder="contoh: kenapa langit berwarna biru">
+        <label for="mkFormat">Format</label>
+        <select id="mkFormat"><option value="short">Shorts 9:16 (35–55 detik)</option><option value="long">Video panjang 16:9 (3–6 menit)</option></select>
         <p></p>
         <button class="btn" id="makeBtn" onclick="makeVideo()">Buat video sekarang</button>
       </div>
       <div id="setupWarn"></div>
       <div id="jobs"></div>
+    </section>
+
+    <section id="tab-niche" class="hidden">
+      <div class="card">
+        <div class="muted">Niche aktif</div>
+        <b id="curNiche" style="font-size:17px">–</b>
+        <label for="ownNiche">Tetapkan niche sendiri</label>
+        <div class="row"><input id="ownNiche" placeholder="mis. sejarah kerajaan Nusantara"><button class="btn sm" onclick="pickNiche(ownNiche.value, '')">Tetapkan</button></div>
+      </div>
+      <div class="card">
+        <b>Rekomendasi AI dari tren terbaru</b>
+        <p class="muted" style="margin:4px 0 10px">Claude menganalisis video trending di negara Anda lalu menyarankan 6 niche (± $0.04 sekali analisis).</p>
+        <button class="btn" id="aiNicheBtn" onclick="aiNiches()">Analisis niche dengan AI</button>
+      </div>
+      <div id="aiNiches"></div>
+      <h3 style="margin:18px 0 8px">Niche pilihan untuk channel faceless</h3>
+      <p class="muted" style="margin-top:0">Potensi penghasilan dan persaingan adalah perkiraan umum, bukan jaminan.</p>
+      <div id="curated"></div>
     </section>
 
     <section id="tab-trends" class="hidden">
@@ -118,7 +139,7 @@
         <label for="s_niche" style="margin-top:0">Niche channel</label>
         <input id="s_niche">
         <div class="grid2">
-          <div><label for="s_format">Format</label>
+          <div><label for="s_format">Format default manual</label>
             <select id="s_format"><option value="short">Shorts 9:16</option><option value="long">Video panjang 16:9</option></select></div>
           <div><label for="s_region">Negara tren</label>
             <select id="s_region"><option>ID</option><option>MY</option><option>US</option><option>GB</option><option>IN</option><option>PH</option></select></div>
@@ -137,10 +158,13 @@
           <div><label for="s_voice_rate">Kecepatan suara</label>
             <select id="s_voice_rate"><option>-10%</option><option>+0%</option><option>+5%</option><option>+10%</option><option>+20%</option></select></div>
         </div>
-        <div class="grid2">
-          <div><label for="s_interval_hours">Autopilot tiap (jam)</label><input id="s_interval_hours" type="number" min="1"></div>
-          <div><label for="s_daily_limit">Maks video / hari</label><input id="s_daily_limit" type="number" min="1" max="10"></div>
+        <label style="margin-top:14px"><b style="color:var(--text)">Jadwal autopilot per hari</b> · disarankan 2 Shorts + 1 video panjang</label>
+        <div class="grid2" style="grid-template-columns:1fr 1fr 1fr">
+          <div><label for="s_daily_shorts">Shorts</label><input id="s_daily_shorts" type="number" min="0" max="6"></div>
+          <div><label for="s_daily_long">Video panjang</label><input id="s_daily_long" type="number" min="0" max="3"></div>
+          <div><label for="s_interval_hours">Jeda (jam)</label><input id="s_interval_hours" type="number" min="1"></div>
         </div>
+        <div class="muted">Kuota upload YouTube API ± 6 video/hari.</div>
         <label for="s_category_id">Kategori YouTube</label>
         <select id="s_category_id">
           <option value="">Semua / Education</option><option value="27">Education</option><option value="28">Science &amp; Technology</option>
@@ -196,8 +220,9 @@ function logout() { localStorage.removeItem("at_token"); token = ""; $("app").cl
 
 document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
-  ["home", "trends", "settings"].forEach((t) => $("tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  ["home", "niche", "trends", "settings"].forEach((t) => $("tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
   if (b.dataset.tab === "settings") loadSettings();
+  if (b.dataset.tab === "niche") loadNiches();
 });
 
 async function refresh() {
@@ -205,8 +230,10 @@ async function refresh() {
     status = await api("/api/status");
     const ap = status.autopilot;
     $("apToggle").checked = ap.enabled;
+    const when = new Date(ap.next_run).toLocaleString("id-ID", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
     $("apInfo").textContent = ap.enabled
-      ? `${ap.made_today}/${ap.daily_limit} video hari ini · berikutnya ${new Date(ap.next_run).toLocaleString("id-ID", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}`
+      ? `Hari ini: ${ap.made.short}/${ap.limits.short} Shorts · ${ap.made.long}/${ap.limits.long} video panjang · ` +
+        (ap.next_format ? `berikutnya ${ap.next_format === "long" ? "video panjang" : "Shorts"} ${when}` : "kuota hari ini selesai")
       : "Mati. Nyalakan agar video dibuat & diupload otomatis.";
     const missing = Object.entries(status.keys).filter(([, v]) => !v).map(([k]) => k);
     $("setupWarn").innerHTML = missing.length || !status.youtube_linked
@@ -232,7 +259,7 @@ function renderJobs(jobs) {
     ].join(" ");
     return `<div class="card">
       <div class="row"><b>${esc(title)}</b><span class="pill ${cls}">${LABEL[j.status] || j.status}</span></div>
-      <div class="muted">${new Date(j.created).toLocaleString("id-ID")} · ${j.source === "autopilot" ? "Autopilot" : "Manual"}${j.duration ? " · " + j.duration + " dtk" : ""}</div>
+      <div class="muted">${new Date(j.created).toLocaleString("id-ID")} · ${j.format === "long" ? "Video panjang" : "Shorts"} · ${j.source === "autopilot" ? "Autopilot" : "Manual"}${j.duration ? " · " + j.duration + " dtk" : ""}</div>
       ${j.error ? `<div class="muted" style="color:var(--bad)">${esc(j.error)}</div>` : ""}
       ${vid}
       <div style="margin-top:8px">${actions}</div>
@@ -245,7 +272,7 @@ function renderJobs(jobs) {
 }
 
 async function makeVideo() {
-  try { await api("/api/jobs", { method: "POST", body: JSON.stringify({ topic: $("topic").value }) }); $("topic").value = ""; toast("Proses dimulai"); refresh(); }
+  try { await api("/api/jobs", { method: "POST", body: JSON.stringify({ topic: $("topic").value, format: $("mkFormat").value }) }); $("topic").value = ""; toast("Proses dimulai"); refresh(); }
   catch (e) { toast(e.message); }
 }
 async function uploadJob(id) { toast("Mengupload…"); try { await api(`/api/jobs/${id}/upload`, { method: "POST" }); } catch (e) { toast(e.message); } refresh(); }
@@ -269,7 +296,7 @@ function inspire(title) {
   document.querySelector('nav button[data-tab="home"]').click();
 }
 
-const FIELDS = ["niche", "format", "region", "language", "voice", "voice_rate", "interval_hours", "daily_limit", "category_id", "privacy", "auto_upload", "ai_disclosure"];
+const FIELDS = ["niche", "format", "region", "language", "voice", "voice_rate", "interval_hours", "daily_shorts", "daily_long", "category_id", "privacy", "auto_upload", "ai_disclosure"];
 async function loadSettings() {
   const s = await api("/api/settings");
   FIELDS.forEach((f) => $("s_" + f).value = String(s[f]));
@@ -283,11 +310,58 @@ async function saveSettings() {
   const body = {};
   FIELDS.forEach((f) => {
     let v = $("s_" + f).value;
-    if (["interval_hours", "daily_limit"].includes(f)) v = Number(v);
+    if (["interval_hours", "daily_shorts", "daily_long"].includes(f)) v = Number(v);
     if (["auto_upload", "ai_disclosure"].includes(f)) v = v === "true";
     body[f] = v;
   });
   await api("/api/settings", { method: "PUT", body: JSON.stringify(body) }); toast("Tersimpan");
+}
+
+const CATEGORY = { "27": "Education", "28": "Science & Tech", "22": "People & Blogs", "24": "Entertainment", "26": "Howto & Style", "15": "Pets & Animals", "19": "Travel", "17": "Sports" };
+const LEVEL = { rendah: "", sedang: "run", tinggi: "ok" };
+const COMP = { rendah: "ok", sedang: "run", tinggi: "bad" };
+let currentNiche = "";
+
+function nicheCard(n) {
+  const active = n.name.toLowerCase() === currentNiche.toLowerCase();
+  return `<div class="card">
+    <div class="row"><b>${esc(n.name)}</b>${n.recommended ? `<span class="pill ok">Disarankan</span>` : ""}</div>
+    <div style="margin:6px 0">
+      <span class="pill ${LEVEL[n.rpm]}">Penghasilan: ${n.rpm}</span>
+      <span class="pill ${COMP[n.competition]}">Persaingan: ${n.competition}</span>
+      <span class="pill">${CATEGORY[n.category_id] || n.category_id}</span>
+    </div>
+    <div>${esc(n.why)}</div>
+    <div class="muted">Penonton: ${esc(n.audience)}</div>
+    <div class="muted">Risiko: ${esc(n.risk)}</div>
+    <details><summary>Contoh judul</summary><pre>${n.sample_titles.map((t) => "• " + esc(t)).join("\n")}</pre></details>
+    <p style="margin:10px 0 0"></p>
+    <button class="btn ${active ? "ghost" : ""}" ${active ? "disabled" : ""} onclick='pickNiche(${JSON.stringify(n.name).replace(/'/g, "&#39;")}, "${n.category_id}")'>${active ? "Niche aktif" : "Pilih niche ini"}</button>
+  </div>`;
+}
+
+async function loadNiches() {
+  try {
+    const d = await api("/api/niches");
+    currentNiche = d.current;
+    $("curNiche").textContent = d.current;
+    $("curated").innerHTML = d.curated.map(nicheCard).join("");
+    $("aiNiches").innerHTML = d.ai ? `<p class="muted">Hasil analisis AI · ${new Date(d.ai.created).toLocaleString("id-ID")}</p>` + d.ai.niches.map(nicheCard).join("") : "";
+  } catch (e) { toast(e.message); }
+}
+async function aiNiches() {
+  $("aiNicheBtn").disabled = true; $("aiNicheBtn").textContent = "Menganalisis… (± 30 detik)";
+  try { await api("/api/niches/recommend", { method: "POST" }); await loadNiches(); }
+  catch (e) { toast(e.message); }
+  $("aiNicheBtn").disabled = false; $("aiNicheBtn").textContent = "Analisis ulang niche dengan AI";
+}
+async function pickNiche(name, categoryId) {
+  name = name.trim();
+  if (!name) return;
+  const body = { niche: name };
+  if (categoryId) body.category_id = categoryId;
+  await api("/api/settings", { method: "PUT", body: JSON.stringify(body) });
+  toast("Niche ditetapkan: " + name); $("ownNiche").value = ""; loadNiches();
 }
 
 function start() { $("login").classList.add("hidden"); $("app").classList.remove("hidden"); refresh(); }
