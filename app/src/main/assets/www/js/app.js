@@ -133,6 +133,8 @@ const App = (() => {
 
   function show(id) {
     document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === id));
+    Music.setMode(id === 'screen-play' ? 'learn' : 'menu');
+    if (id !== 'screen-play') Voice.stop();
   }
   const current = () => document.querySelector('.screen.active').id;
 
@@ -147,7 +149,6 @@ const App = (() => {
         onClick: () => {
           Sound.tap();
           Store.set('age', a);
-          speak(`Umur ${a} tahun. Ayo belajar!`);
           openHome();
         },
       }, h('span', { class: 'age-emoji' }, AGE_EMOJI[a]), h('span', { class: 'age-num' }, a), h('span', { class: 'age-unit' }, 'tahun')));
@@ -191,7 +192,7 @@ const App = (() => {
       const pct = nodes.length ? Math.round((Math.min(pos, nodes.length) / nodes.length) * 100) : 0;
       grid.append(h('button', {
         class: 'cat-card', style: { background: c.color },
-        onClick: () => { Sound.tap(); speak(c.title); openPath(c); },
+        onClick: () => { Sound.tap(); openPath(c); },
       },
       h('span', { class: 'cat-icon' }, c.icon),
       h('span', { class: 'cat-title' }, c.title),
@@ -257,7 +258,7 @@ const App = (() => {
       h('span', { class: 'node-icon' }, state === 'locked' ? '🔒' : n.type === 'exam' ? '🏆' : n.game.icon),
       state === 'current' ? h('span', { class: 'node-start' }, n.type === 'exam' ? 'UJIAN' : 'MULAI') : null);
       btn.addEventListener('click', () => {
-        if (state === 'locked') { Sound.wrong(); shake(btn); speak('Selesaikan pelajaran sebelumnya dulu ya.'); return; }
+        if (state === 'locked') { Sound.wrong(); shake(btn); toast('🔒 Selesaikan pelajaran sebelumnya dulu ya.'); return; }
         Sound.tap();
         if (n.type === 'exam') startExam(nodes, i);
         else playGame(n.game, n.level, i);
@@ -487,6 +488,8 @@ const App = (() => {
 
   function openSettings() {
     $('set-sound').checked = Store.get('sound');
+    $('set-music').checked = Store.get('music');
+    $('set-music-vol').value = Store.get('musicVol');
     $('set-voice').checked = Store.get('voice');
     $('set-natural').checked = Store.get('natural');
     $('natural-hint').textContent = Voice.hasNatural()
@@ -520,12 +523,13 @@ const App = (() => {
       addStars(CHEST_REWARD);
       Sound.win();
       confetti(120);
-      speak('Hore! Kamu dapat dua puluh bintang hadiah!');
       toast(`🎁 +${CHEST_REWARD} ⭐ hadiah misi harian!`);
       openHome();
     });
     $('btn-close-settings').addEventListener('click', () => $('settings').classList.add('hidden'));
     $('set-sound').addEventListener('change', (e) => Store.set('sound', e.target.checked));
+    $('set-music').addEventListener('change', (e) => { Store.set('music', e.target.checked); Music.apply(); });
+    $('set-music-vol').addEventListener('input', (e) => { Store.set('musicVol', parseFloat(e.target.value)); Music.apply(); });
     $('set-voice').addEventListener('change', (e) => { Store.set('voice', e.target.checked); if (!e.target.checked) Voice.stop(); });
     $('set-natural').addEventListener('change', (e) => { Store.set('natural', e.target.checked); speak(TEST_TEXT()); });
     $('set-voice-name').addEventListener('change', (e) => { Voice.choose(e.target.value); speak('Halo! Ayo kita belajar bersama.'); });
@@ -541,8 +545,9 @@ const App = (() => {
       }
     });
     // Buka kunci audio pada sentuhan pertama (kebijakan autoplay browser)
-    document.addEventListener('pointerdown', () => Sound.unlock(), { once: true });
+    document.addEventListener('pointerdown', () => { Sound.unlock(); Music.apply(); }, { once: true });
     renderAges();
+    Music.apply();
   }
 
   return { init, stop };

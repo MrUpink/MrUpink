@@ -4,7 +4,7 @@
 const Store = (() => {
   const KEY = 'pintarceria.v1';
   const defaults = {
-    stars: 0, age: 0, sound: true, voice: true, natural: true, voiceName: '', rate: 0.95,
+    stars: 0, age: 0, sound: true, music: true, musicVol: 0.5, voice: true, natural: true, voiceName: '', rate: 0.95,
     paths: {}, streak: { count: 0, last: '' }, daily: null,
   };
   let data = Object.assign({}, defaults);
@@ -224,6 +224,41 @@ const Voice = (() => {
   return { speak, stop, list, current, choose, applyRate, init, resolve, hasNatural };
 })();
 const speak = Voice.speak;
+
+/* Musik latar (komposisi asli, lihat tools/music/compose.py). Di menu terdengar penuh,
+ * di layar belajar dikecilkan agar suara pemandu tetap jelas. */
+const Music = (() => {
+  const LEARN = 0.25; // porsi volume saat belajar
+  let el = null;
+  let mode = 'menu';
+  let fade = null;
+  const target = () => (Store.get('music') && !document.hidden
+    ? Store.get('musicVol') * (mode === 'learn' ? LEARN : 1) * 0.6 : 0);
+  function ensure() {
+    if (el) return el;
+    el = new Audio('audio/music/ceria.ogg');
+    el.loop = true;
+    el.volume = 0;
+    return el;
+  }
+  function apply() {
+    const a = ensure();
+    const to = target();
+    clearInterval(fade);
+    if (to > 0 && a.paused) a.play().catch(() => { /* tunggu sentuhan pertama */ });
+    fade = setInterval(() => {
+      const v = a.volume + Math.sign(to - a.volume) * 0.03;
+      if (Math.abs(to - a.volume) <= 0.03) {
+        a.volume = to;
+        clearInterval(fade);
+        if (to === 0) a.pause();
+      } else a.volume = Math.max(0, Math.min(1, v));
+    }, 40);
+  }
+  function setMode(m) { if (m !== mode) { mode = m; apply(); } }
+  document.addEventListener('visibilitychange', apply);
+  return { apply, setMode };
+})();
 
 /* ---------- Pelafalan ----------
  * Mesin TTS sering salah membaca huruf/suku kata yang berdiri sendiri (mis. "ca" dibaca "ka"),

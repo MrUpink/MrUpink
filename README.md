@@ -52,6 +52,13 @@ tidak dikenal*).
 
 Atau buka folder ini di **Android Studio** lalu tekan ▶ Run.
 
+## Musik latar
+
+Musik "Ceria" adalah komposisi asli yang disintesis dengan `tools/music/compose.py` (numpy + ffmpeg),
+tanpa sampel pihak ketiga, jadi aman untuk rilis berbayar. Musik penuh di menu, otomatis mengecil
+saat belajar, dan bisa dimatikan / diatur volumenya di Pengaturan. Suara pemandu hanya dipakai di
+dalam pelajaran, tidak di menu.
+
 ## Suara natural (offline)
 
 Suara pemandu adalah **"Suara A"** — suara guru perempuan yang lembut & ceria, dibuat dengan model

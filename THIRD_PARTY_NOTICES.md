@@ -8,6 +8,7 @@ Pemberitahuan lisensi juga ditampilkan di aplikasi: ⚙️ Pengaturan → 📜 L
 | Microsoft Fluent Emoji 3D (194 ikon + ikon aplikasi) | `www/img/emoji/`, `res/mipmap-*/ic_launcher_foreground.webp` | © Microsoft Corporation (dikemas oleh LobeHub, paket npm `@lobehub/fluent-emoji-3d`) | MIT | Sertakan teks lisensi MIT (sudah ada di layar Lisensi) |
 | Font Fredoka (500/600/700) | `www/fonts/` | © The Fredoka Project Authors | SIL Open Font License 1.1 | Sertakan `OFL.txt` (sudah ada); font tidak boleh dijual terpisah |
 | Efek suara | dibuat oleh kode (Web Audio) | — | — | Tidak ada berkas pihak ketiga |
+| Musik latar "Ceria" (`audio/music/ceria.ogg`) | komposisi asli, disintesis oleh `tools/music/compose.py` | — | Milik pengembang | Tanpa sampel/melodi pihak ketiga |
 | Suara pemandu (rekaman) | `www/audio/` | dibuat dengan model VoxCPM2 © OpenBMB | Apache-2.0 | Sertakan pemberitahuan lisensi (ada di layar Lisensi) |
 
 ## Suara pemandu
