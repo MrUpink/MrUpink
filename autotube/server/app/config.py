@@ -20,14 +20,20 @@ PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
 YT_CLIENT_ID = os.environ.get("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.environ.get("YT_CLIENT_SECRET", "")
 
+# Preset target penonton. "global" = penonton berbahasa Inggris di negara tier-1 (RPM tertinggi).
+AUDIENCES = {
+    "global": {"language": "English", "lang_code": "en", "region": "US", "voice": "en-US-AndrewNeural",
+               "voice_rate": "+0%", "timezone": "America/New_York", "publish_hours": "08,13,19",
+               "niche": "business stories and how companies make money", "category_id": "27"},
+    "local": {"language": "Bahasa Indonesia", "lang_code": "id", "region": "ID", "voice": "id-ID-ArdiNeural",
+              "voice_rate": "+5%", "timezone": "Asia/Jakarta", "publish_hours": "07,12,19",
+              "niche": "kisah bisnis dan merek terkenal", "category_id": "27"},
+}
+
 DEFAULT_SETTINGS = {
-    "niche": "fakta unik dan pengetahuan umum",
-    "language": "Bahasa Indonesia",
-    "region": "ID",
-    "category_id": "",  # kosong = semua kategori
+    "audience": "global",  # global | local
+    **AUDIENCES["global"],
     "format": "short",  # format default untuk "Buat video sekarang": short (9:16) | long (16:9)
-    "voice": "id-ID-ArdiNeural",
-    "voice_rate": "+5%",
     "autopilot": False,
     "interval_hours": 6,
     # Campuran paling realistis untuk monetisasi: Shorts menarik subscriber,
@@ -37,6 +43,8 @@ DEFAULT_SETTINGS = {
     "auto_upload": True,
     "privacy": "public",  # public | unlisted | private
     "ai_disclosure": True,  # tandai "konten sintetis" di YouTube
+    # Upload sebagai terjadwal agar tayang di jam ramai zona waktu penonton (bukan jam render).
+    "schedule_publish": True,
 }
 
 _lock = threading.Lock()
@@ -60,6 +68,13 @@ def save_settings(changes: dict) -> dict:
     with _lock:
         _settings_file.write_text(json.dumps(s, indent=2, ensure_ascii=False))
     return s
+
+
+def apply_audience(audience: str) -> dict:
+    """Ganti target penonton: bahasa, negara tren, suara, zona waktu, jam tayang, dan niche awal."""
+    if audience not in AUDIENCES:
+        raise ValueError("audience harus global atau local")
+    return save_settings({"audience": audience, **AUDIENCES[audience]})
 
 
 def load_youtube_token() -> dict | None:

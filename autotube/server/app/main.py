@@ -88,7 +88,21 @@ def new_job(body: NewJob) -> dict:
 
 @app.get("/api/niches", dependencies=[Depends(auth)])
 def get_niches() -> dict:
-    return {"current": config.load_settings()["niche"], "curated": niches.CURATED, "ai": niches.cached_ai()}
+    s = config.load_settings()
+    return {"current": s["niche"], "audience": s["audience"], "curated": niches.CURATED[s["audience"]],
+            "ai": niches.cached_ai(s["audience"])}
+
+
+class Audience(BaseModel):
+    audience: str
+
+
+@app.put("/api/audience", dependencies=[Depends(auth)])
+def set_audience(body: Audience) -> dict:
+    try:
+        return config.apply_audience(body.audience)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.post("/api/niches/recommend", dependencies=[Depends(auth)])

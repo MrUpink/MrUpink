@@ -52,6 +52,9 @@
   pre { white-space: pre-wrap; font-size: 12px; color: var(--muted); margin: 6px 0 0; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .hidden { display: none; }
+  .seg { display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 3px; }
+  .seg button { flex: 1; border: 0; background: none; color: var(--muted); padding: 9px 6px; border-radius: 8px; font: inherit; font-weight: 600; font-size: 14px; }
+  .seg button.on { background: var(--accent); color: var(--accent-text); }
   .toast { position: fixed; left: 16px; right: 16px; bottom: 20px; background: var(--text); color: var(--bg); padding: 12px; border-radius: 10px; text-align: center; }
 </style>
 </head>
@@ -104,10 +107,18 @@
 
     <section id="tab-niche" class="hidden">
       <div class="card">
+        <div class="muted" style="margin-bottom:6px">Target penonton</div>
+        <div class="seg" role="group" aria-label="Target penonton">
+          <button data-aud="global" onclick="setAudience('global')">🌍 Luar negeri (English)</button>
+          <button data-aud="local" onclick="setAudience('local')">🇮🇩 Dalam negeri</button>
+        </div>
+        <div class="muted" id="audNote" style="margin-top:8px"></div>
+      </div>
+      <div class="card">
         <div class="muted">Niche aktif</div>
         <b id="curNiche" style="font-size:17px">–</b>
         <label for="ownNiche">Tetapkan niche sendiri</label>
-        <div class="row"><input id="ownNiche" placeholder="mis. sejarah kerajaan Nusantara"><button class="btn sm" onclick="pickNiche(ownNiche.value, '')">Tetapkan</button></div>
+        <div class="row"><input id="ownNiche" placeholder="mis. ocean mysteries / sejarah Nusantara"><button class="btn sm" onclick="pickNiche(ownNiche.value, '')">Tetapkan</button></div>
       </div>
       <div class="card">
         <b>Rekomendasi AI dari tren terbaru</b>
@@ -136,15 +147,20 @@
     <section id="tab-settings" class="hidden">
       <div class="card" id="ytCard"></div>
       <div class="card">
-        <label for="s_niche" style="margin-top:0">Niche channel</label>
+        <div class="muted" style="margin-bottom:6px">Target penonton (mengatur bahasa, negara tren, suara, dan jam tayang sekaligus)</div>
+        <div class="seg" role="group" aria-label="Target penonton">
+          <button data-aud="global" onclick="setAudience('global')">🌍 Luar negeri (English)</button>
+          <button data-aud="local" onclick="setAudience('local')">🇮🇩 Dalam negeri</button>
+        </div>
+        <label for="s_niche">Niche channel</label>
         <input id="s_niche">
         <div class="grid2">
           <div><label for="s_format">Format default manual</label>
             <select id="s_format"><option value="short">Shorts 9:16</option><option value="long">Video panjang 16:9</option></select></div>
           <div><label for="s_region">Negara tren</label>
-            <select id="s_region"><option>ID</option><option>MY</option><option>US</option><option>GB</option><option>IN</option><option>PH</option></select></div>
+            <select id="s_region"><option>US</option><option>GB</option><option>CA</option><option>AU</option><option>ID</option><option>MY</option><option>PH</option><option>IN</option></select></div>
         </div>
-        <label for="s_language">Bahasa narasi</label>
+        <label for="s_language">Bahasa video</label>
         <input id="s_language">
         <div class="grid2">
           <div><label for="s_voice">Suara</label>
@@ -152,8 +168,11 @@
               <option value="id-ID-ArdiNeural">Ardi (pria, ID)</option>
               <option value="id-ID-GadisNeural">Gadis (wanita, ID)</option>
               <option value="ms-MY-OsmanNeural">Osman (pria, MY)</option>
-              <option value="en-US-AndrewNeural">Andrew (pria, EN)</option>
-              <option value="en-US-AvaNeural">Ava (wanita, EN)</option>
+              <option value="en-US-AndrewNeural">Andrew (pria, US)</option>
+              <option value="en-US-BrianNeural">Brian (pria, US)</option>
+              <option value="en-US-AvaNeural">Ava (wanita, US)</option>
+              <option value="en-US-EmmaNeural">Emma (wanita, US)</option>
+              <option value="en-GB-RyanNeural">Ryan (pria, UK)</option>
             </select></div>
           <div><label for="s_voice_rate">Kecepatan suara</label>
             <select id="s_voice_rate"><option>-10%</option><option>+0%</option><option>+5%</option><option>+10%</option><option>+20%</option></select></div>
@@ -176,6 +195,13 @@
             <select id="s_privacy"><option value="public">Publik</option><option value="unlisted">Tidak publik</option><option value="private">Pribadi</option></select></div>
           <div><label for="s_auto_upload">Upload otomatis</label>
             <select id="s_auto_upload"><option value="true">Ya</option><option value="false">Tidak (cek dulu)</option></select></div>
+        </div>
+        <label for="s_schedule_publish">Waktu tayang</label>
+        <select id="s_schedule_publish"><option value="true">Terjadwal di jam ramai penonton (disarankan)</option><option value="false">Langsung saat upload selesai</option></select>
+        <div class="grid2">
+          <div><label for="s_timezone">Zona waktu penonton</label>
+            <select id="s_timezone"><option value="America/New_York">AS Timur (New York)</option><option value="America/Los_Angeles">AS Barat (LA)</option><option value="Europe/London">Inggris (London)</option><option value="Australia/Sydney">Australia (Sydney)</option><option value="Asia/Jakarta">WIB (Jakarta)</option></select></div>
+          <div><label for="s_publish_hours">Jam tayang (pisah koma)</label><input id="s_publish_hours" placeholder="08,13,19"></div>
         </div>
         <label for="s_ai_disclosure">Label konten AI/sintetis di YouTube</label>
         <select id="s_ai_disclosure"><option value="true">Ya (disarankan)</option><option value="false">Tidak</option></select>
@@ -259,12 +285,13 @@ function renderJobs(jobs) {
     ].join(" ");
     return `<div class="card">
       <div class="row"><b>${esc(title)}</b><span class="pill ${cls}">${LABEL[j.status] || j.status}</span></div>
-      <div class="muted">${new Date(j.created).toLocaleString("id-ID")} · ${j.format === "long" ? "Video panjang" : "Shorts"} · ${j.source === "autopilot" ? "Autopilot" : "Manual"}${j.duration ? " · " + j.duration + " dtk" : ""}</div>
+      <div class="muted">${new Date(j.created).toLocaleString("id-ID")} · ${j.format === "long" ? "Video panjang" : "Shorts"} · ${j.source === "autopilot" ? "Autopilot" : "Manual"}${j.duration ? " · " + j.duration + " dtk" : ""}${j.publish_at ? " · tayang " + new Date(j.publish_at).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}</div>
       ${j.error ? `<div class="muted" style="color:var(--bad)">${esc(j.error)}</div>` : ""}
       ${vid}
       <div style="margin-top:8px">${actions}</div>
       <details><summary>Detail & naskah</summary>
-        ${j.plan ? `<pre><b>Sudut pandang:</b> ${esc(j.plan.angle)}\n\n${j.plan.scenes.map((s, i) => `${i + 1}. ${esc(s.narration)}`).join("\n")}\n\n${esc(j.plan.description)}\n\nTags: ${esc(j.plan.tags.join(", "))}</pre>` : ""}
+        ${j.plan?.review_id ? `<pre><b>Ringkasan (ID):</b> ${esc(j.plan.review_id)}</pre>` : ""}
+        ${j.plan ? `<pre><b>Sudut pandang:</b> ${esc(j.plan.angle)}\n\n${(j.plan.scenes || []).map((s, i) => `${i + 1}. ${esc(s.narration)}`).join("\n")}\n\n${esc(j.plan.description)}\n\nTags: ${esc((j.plan.tags || []).join(", "))}</pre>` : ""}
         <pre>${esc(j.log.join("\n"))}</pre>
       </details>
     </div>`;
@@ -296,10 +323,11 @@ function inspire(title) {
   document.querySelector('nav button[data-tab="home"]').click();
 }
 
-const FIELDS = ["niche", "format", "region", "language", "voice", "voice_rate", "interval_hours", "daily_shorts", "daily_long", "category_id", "privacy", "auto_upload", "ai_disclosure"];
+const FIELDS = ["niche", "format", "region", "language", "voice", "voice_rate", "interval_hours", "daily_shorts", "daily_long", "category_id", "privacy", "auto_upload", "ai_disclosure", "schedule_publish", "timezone", "publish_hours"];
 async function loadSettings() {
   const s = await api("/api/settings");
   FIELDS.forEach((f) => $("s_" + f).value = String(s[f]));
+  markAudience(s.audience);
   const st = status || await api("/api/status");
   $("ytCard").innerHTML = st.youtube_linked
     ? `<div class="row"><div><b>Channel YouTube</b><div class="muted">${st.channel ? esc(st.channel.title) + " · " + (st.channel.subscribers ?? "?") + " subscriber" : "Terhubung"}</div></div><a class="btn sm ghost" href="/oauth/start?token=${encodeURIComponent(token)}">Ganti</a></div>`
@@ -311,7 +339,7 @@ async function saveSettings() {
   FIELDS.forEach((f) => {
     let v = $("s_" + f).value;
     if (["interval_hours", "daily_shorts", "daily_long"].includes(f)) v = Number(v);
-    if (["auto_upload", "ai_disclosure"].includes(f)) v = v === "true";
+    if (["auto_upload", "ai_disclosure", "schedule_publish"].includes(f)) v = v === "true";
     body[f] = v;
   });
   await api("/api/settings", { method: "PUT", body: JSON.stringify(body) }); toast("Tersimpan");
@@ -344,6 +372,7 @@ async function loadNiches() {
   try {
     const d = await api("/api/niches");
     currentNiche = d.current;
+    markAudience(d.audience);
     $("curNiche").textContent = d.current;
     $("curated").innerHTML = d.curated.map(nicheCard).join("");
     $("aiNiches").innerHTML = d.ai ? `<p class="muted">Hasil analisis AI · ${new Date(d.ai.created).toLocaleString("id-ID")}</p>` + d.ai.niches.map(nicheCard).join("") : "";
@@ -355,6 +384,24 @@ async function aiNiches() {
   catch (e) { toast(e.message); }
   $("aiNicheBtn").disabled = false; $("aiNicheBtn").textContent = "Analisis ulang niche dengan AI";
 }
+const AUD_NOTE = {
+  global: "Video berbahasa Inggris untuk AS, Inggris, Kanada, Australia. RPM jauh lebih tinggi, tapi persaingan juga lebih ketat. Setiap naskah dilengkapi ringkasan Bahasa Indonesia agar Anda tetap bisa mengecek isinya.",
+  local: "Video berbahasa Indonesia. Persaingan lebih longgar dan lebih mudah Anda cek sendiri, tetapi RPM jauh lebih rendah.",
+};
+function markAudience(a) {
+  document.querySelectorAll("[data-aud]").forEach((b) => b.classList.toggle("on", b.dataset.aud === a));
+  $("audNote").textContent = AUD_NOTE[a] || "";
+}
+async function setAudience(a) {
+  if (!confirm(a === "global"
+    ? "Ganti ke penonton luar negeri? Bahasa, suara, negara tren, jam tayang, dan niche awal akan diganti ke preset English."
+    : "Ganti ke penonton dalam negeri? Bahasa, suara, negara tren, jam tayang, dan niche awal akan diganti ke preset Indonesia.")) return;
+  await api("/api/audience", { method: "PUT", body: JSON.stringify({ audience: a }) });
+  toast(a === "global" ? "Target: luar negeri" : "Target: dalam negeri");
+  loadNiches();
+  if (!$("tab-settings").classList.contains("hidden")) loadSettings();
+}
+
 async function pickNiche(name, categoryId) {
   name = name.trim();
   if (!name) return;

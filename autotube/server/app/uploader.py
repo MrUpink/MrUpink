@@ -55,16 +55,19 @@ def channel_info() -> dict | None:
     return {"title": items[0]["snippet"]["title"], "subscribers": items[0]["statistics"].get("subscriberCount")}
 
 
-def upload(video_path: str, plan: dict, settings: dict, fmt: str) -> str:
+def upload(video_path: str, plan: dict, settings: dict, fmt: str, publish_at: str | None = None) -> str:
     title, description = plan["title"][:100], plan["description"]
     if fmt == "short" and "#shorts" not in (title + description).lower():
         description += "\n\n#Shorts"
     body = {
         "snippet": {"title": title, "description": description[:5000], "tags": plan["tags"][:15],
-                    "categoryId": settings["category_id"] or "27"},  # 27 = Education
+                    "categoryId": settings["category_id"] or "27",  # 27 = Education
+                    "defaultLanguage": settings["lang_code"], "defaultAudioLanguage": settings["lang_code"]},
         "status": {"privacyStatus": settings["privacy"], "selfDeclaredMadeForKids": False,
                    "containsSyntheticMedia": bool(settings["ai_disclosure"])},
     }
+    if publish_at:  # YouTube mewajibkan status private untuk video terjadwal; otomatis publik pada waktunya
+        body["status"].update(privacyStatus="private", publishAt=publish_at)
     request = _youtube().videos().insert(
         part="snippet,status", body=body,
         media_body=MediaFileUpload(video_path, mimetype="video/mp4", chunksize=8 * 1024 * 1024, resumable=True))

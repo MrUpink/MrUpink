@@ -4,9 +4,55 @@ from datetime import datetime, timezone
 
 from . import config, trends, writer
 
-# Kurasi untuk penonton Indonesia: visual mudah diwakili stok video, evergreen, cocok Shorts + video panjang.
-# rpm/competition adalah perkiraan kualitatif, bukan angka pasti.
-CURATED = [
+# Kurasi niche faceless: visual mudah diwakili stok video, evergreen, cocok Shorts + video panjang.
+# rpm/competition adalah perkiraan kualitatif relatif terhadap pasarnya, bukan angka pasti.
+# Penonton tier-1 berbahasa Inggris (AS, Inggris, Kanada, Australia). Nama niche dalam bahasa Inggris
+# karena dipakai sebagai kata kunci riset tren di YouTube.
+GLOBAL = [
+    {"name": "business stories and how companies make money", "category_id": "27", "rpm": "tinggi", "competition": "sedang", "recommended": True,
+     "why": "RPM tinggi dan persaingan lebih longgar dibanding keuangan murni; cerita perusahaan cocok untuk video panjang dengan jam tayang tinggi.",
+     "audience": "Pria & wanita 18–45 tahun di AS/UK, peminat bisnis",
+     "risk": "Pakai fakta publik; hindari tuduhan terhadap perusahaan atau orang nyata.",
+     "sample_titles": ["How a Tiny Brand Outsold the Giants", "The Pricing Trick Every Supermarket Uses", "Why Some Billion-Dollar Startups Collapse"]},
+    {"name": "personal finance and money psychology", "category_id": "27", "rpm": "tinggi", "competition": "tinggi", "recommended": True,
+     "why": "Salah satu RPM tertinggi di YouTube; topik praktis yang dicari setiap hari.",
+     "audience": "22–45 tahun, karyawan & keluarga muda di AS/UK/CA/AU",
+     "risk": "Persaingan sangat ketat; jangan memberi saran investasi spesifik atau janji untung.",
+     "sample_titles": ["Why Your Paycheck Disappears So Fast", "The 50/30/20 Rule Explained in 60 Seconds", "Habits That Quietly Keep People Broke"]},
+    {"name": "AI tools and technology explained", "category_id": "28", "rpm": "tinggi", "competition": "tinggi", "recommended": True,
+     "why": "Pengiklan teknologi membayar mahal; topik baru muncul setiap minggu.",
+     "audience": "18–40 tahun, pekerja & pelajar",
+     "risk": "Info cepat usang; pastikan fitur/harga yang disebut benar.",
+     "sample_titles": ["How AI Actually Reads an Image", "5 Hidden Phone Features Nobody Uses", "Why Batteries Die Faster in Winter"]},
+    {"name": "why expensive things cost so much", "category_id": "27", "rpm": "tinggi", "competition": "sedang", "recommended": False,
+     "why": "Rasa penasaran tinggi, cocok Shorts dan video panjang; visual barang mewah banyak di stok video.",
+     "audience": "18–45 tahun",
+     "risk": "Harga harus akurat; hindari promosi merek terselubung.",
+     "sample_titles": ["Why Saffron Costs More Than Gold", "Why Swiss Watches Are So Expensive", "The Real Cost of a Private Island"]},
+    {"name": "space and science explained", "category_id": "28", "rpm": "sedang", "competition": "tinggi", "recommended": False,
+     "why": "Evergreen, ide tidak habis, stok video luar angkasa sangat banyak.",
+     "audience": "Semua umur 13+",
+     "risk": "Banyak channel besar; perlu sudut pandang unik. Hindari teori konspirasi.",
+     "sample_titles": ["What If the Moon Disappeared Tonight?", "How Big Is the Sun, Really?", "Why the Ocean Is Salty but Rivers Aren't"]},
+    {"name": "history mysteries and ancient civilizations", "category_id": "27", "rpm": "sedang", "competition": "tinggi", "recommended": False,
+     "why": "Video panjang dengan durasi tonton tinggi; cocok untuk narasi suara.",
+     "audience": "18–55 tahun, mayoritas pria",
+     "risk": "Stok video sejarah terbatas; visual sering generik.",
+     "sample_titles": ["The City That Vanished Overnight", "Why the Pyramids Were Built in the Desert", "Accidental Discoveries That Changed History"]},
+    {"name": "geography and how countries work", "category_id": "27", "rpm": "sedang", "competition": "sedang", "recommended": False,
+     "why": "Persaingan menengah; stok video kota & alam melimpah.",
+     "audience": "15–40 tahun",
+     "risk": "Perbarui data (populasi, harga) secara berkala; hindari isu politik.",
+     "sample_titles": ["How the World's Smallest Country Makes Money", "Why Japan Has So Few Trash Cans", "The Most Expensive Cities to Live In"]},
+    {"name": "psychology and human behavior", "category_id": "27", "rpm": "sedang", "competition": "tinggi", "recommended": False,
+     "why": "Relatable dan sering dibagikan; cocok Shorts.",
+     "audience": "17–35 tahun",
+     "risk": "Jangan mendiagnosis kondisi mental; persaingan sangat ketat.",
+     "sample_titles": ["Why We Procrastinate (It's Not Laziness)", "Small Tricks That Make People Trust You", "Signs You're Too Hard on Yourself"]},
+]
+
+# Penonton Indonesia.
+LOCAL = [
     {"name": "teknologi, AI dan tips HP", "category_id": "28", "rpm": "tinggi", "competition": "tinggi", "recommended": True,
      "why": "Penonton dan pengiklan teknologi bernilai tinggi; topik baru muncul setiap minggu.",
      "audience": "18–35 tahun, pengguna HP & pekerja kantoran",
@@ -49,11 +95,16 @@ CURATED = [
      "sample_titles": ["Hewan yang Bisa Hidup Tanpa Air Bertahun-tahun", "Kenapa Kucing Suka Kotak", "Gurita Punya Tiga Jantung?"]},
 ]
 
+CURATED = {"global": GLOBAL, "local": LOCAL}
+
 _cache = config.DATA_DIR / "niche_ai.json"
 
 
-def cached_ai() -> dict | None:
-    return json.loads(_cache.read_text()) if _cache.exists() else None
+def cached_ai(audience: str) -> dict | None:
+    if not _cache.exists():
+        return None
+    data = json.loads(_cache.read_text())
+    return data if data.get("audience", "local") == audience else None
 
 
 def ai_recommend() -> dict:
@@ -62,7 +113,7 @@ def ai_recommend() -> dict:
         signals = trends.trending(settings["region"])
     except Exception:
         signals = []
-    result = {"created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    result = {"created": datetime.now(timezone.utc).isoformat(timespec="seconds"), "audience": settings["audience"],
               "niches": writer.recommend_niches(settings, signals)}
     _cache.write_text(json.dumps(result, ensure_ascii=False, indent=2))
     return result

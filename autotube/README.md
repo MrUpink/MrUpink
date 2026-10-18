@@ -14,7 +14,12 @@ ke channel YouTube Anda sendiri:
 7. **Autopilot campuran**: default **2 Shorts + 1 video panjang per hari**. Shorts menarik subscriber,
    video panjang mengumpulkan jam tayang (syarat 4.000 jam) dan RPM-nya jauh lebih tinggi.
    Ini jalur monetisasi yang paling realistis.
-8. **Tab Niche**: 8 niche faceless pilihan (perkiraan potensi penghasilan, persaingan, risiko, contoh judul),
+9. **Target penonton**: **Luar negeri (English, default)** untuk AS/Inggris/Kanada/Australia, atau
+   **Dalam negeri** (Indonesia). Satu ketukan mengganti bahasa, negara tren, suara, zona waktu, jam tayang,
+   dan daftar niche. Naskah English selalu disertai ringkasan Bahasa Indonesia agar mudah dicek.
+10. **Tayang terjadwal**: video diupload sebagai terjadwal dan otomatis tayang di jam ramai zona waktu
+    penonton (default 08:00, 13:00, 19:00 waktu New York ≈ 19:00, 00:00, 06:00 WIB), tidak bentrok antar video.
+8. **Tab Niche**: niche faceless pilihan untuk luar negeri dan dalam negeri (perkiraan potensi penghasilan, persaingan, risiko, contoh judul),
    rekomendasi AI dari video trending terbaru (± $0.04 per analisis), dan tombol untuk menetapkan niche.
 
 Video yang dihasilkan adalah karya baru (naskah, suara, dan susunan sendiri, footage berlisensi),
@@ -78,6 +83,12 @@ Saat pertama dibuka:
 5. Tab **Beranda** → nyalakan **Autopilot**, atau tekan **Buat video sekarang**.
 
 ## Tips agar channel aman & bisa dimonetisasi
+
+- **Pajak penonton AS**: setelah monetisasi, isi formulir pajak AS (W-8BEN) di AdSense. Tanpa formulir itu,
+  YouTube bisa memotong pajak dari seluruh penghasilan; dengan formulir, potongan hanya untuk penonton AS dan
+  tarifnya lebih rendah berkat perjanjian pajak Indonesia–AS.
+- **Negara channel** tetap isi Indonesia (sesuai domisili Anda). Target penonton luar negeri tidak memerlukan
+  negara channel diubah.
 
 - YouTube menolak monetisasi untuk konten yang **dibuat massal/berulang tanpa nilai tambah**.
   Gunakan niche yang jelas, jangan menaikkan batas harian terlalu tinggi, dan sesekali tonton hasilnya.

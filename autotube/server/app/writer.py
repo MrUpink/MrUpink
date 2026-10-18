@@ -8,13 +8,14 @@ from . import config
 PLAN_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["topic", "angle", "title", "description", "tags", "scenes"],
+    "required": ["topic", "angle", "title", "description", "tags", "review_id", "scenes"],
     "properties": {
         "topic": {"type": "string"},
         "angle": {"type": "string", "description": "Sudut pandang unik yang membedakan video ini"},
         "title": {"type": "string"},
         "description": {"type": "string"},
         "tags": {"type": "array", "items": {"type": "string"}},
+        "review_id": {"type": "string", "description": "Ringkasan isi video + terjemahan judul dalam Bahasa Indonesia untuk pemilik channel"},
         "scenes": {
             "type": "array",
             "items": {
@@ -64,6 +65,12 @@ def _ask(system: str, prompt: str, schema: dict) -> dict:
     return json.loads(next(b.text for b in response.content if b.type == "text"))
 
 
+def _audience_desc(settings: dict) -> str:
+    if settings["audience"] == "global":
+        return "penonton internasional berbahasa Inggris (AS, Inggris, Kanada, Australia)"
+    return "penonton Indonesia"
+
+
 def _format_rules(fmt: str) -> str:
     if fmt == "long":
         return "Format video panjang 16:9, durasi 3-6 menit: 12-20 scene, narasi tiap scene 2-4 kalimat."
@@ -75,7 +82,10 @@ def make_plan(settings: dict, fmt: str, trend_items: list[dict], recent_topics: 
         f"- {t['title']} ({t['views_per_hour']} views/jam; tag: {', '.join(t['tags'][:5])})" for t in trend_items
     ) or "(tidak ada data tren, pilih topik evergreen yang populer)"
     prompt = f"""Niche channel: {settings['niche']}
-Bahasa narasi: {settings['language']}
+Target penonton: {_audience_desc(settings)}
+Bahasa video: {settings['language']} — topic, angle, judul, deskripsi, tag, caption, dan narasi WAJIB dalam bahasa ini
+(kecuali review_id: selalu Bahasa Indonesia; footage_query: Bahasa Inggris).
+Tulis seperti kreator asli dari negara penonton: idiom natural, contoh, satuan, dan mata uang yang mereka kenal.
 {_format_rules(fmt)}
 
 Sinyal tren saat ini (judul video lain + kecepatan views):
@@ -129,7 +139,9 @@ yang menyesatkan, berita politik, konten anak, reupload/kompilasi). Jujur soal r
 
 def recommend_niches(settings: dict, trend_items: list[dict]) -> list[dict]:
     signals = "\n".join(f"- {t['title']} ({t['views_per_hour']} views/jam)" for t in trend_items[:25]) or "(tidak ada data)"
-    prompt = f"""Negara penonton: {settings['region']}, bahasa narasi: {settings['language']}.
+    prompt = f"""Target penonton: {_audience_desc(settings)}; negara data tren: {settings['region']}; bahasa video: {settings['language']}.
+Nama niche ditulis dalam {settings['language']} (dipakai sebagai kata kunci pencarian di YouTube);
+why, audience, dan risk dalam Bahasa Indonesia; contoh judul dalam {settings['language']}.
 Niche channel saat ini: {settings['niche']}
 
 Video trending saat ini di negara tersebut:

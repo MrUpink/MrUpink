@@ -6,8 +6,9 @@ import threading
 import time
 import traceback
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, time as dtime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from . import config, media, trends, uploader, writer
 
@@ -120,13 +121,39 @@ def _run(job_id: str) -> None:
         _step(job, "failed", f"Gagal: {e}")
 
 
+def next_publish_slot(settings: dict) -> datetime:
+    """Jam tayang berikutnya (zona waktu penonton) yang belum dipakai video lain, minimal 20 menit dari sekarang."""
+    tz = ZoneInfo(settings["timezone"])
+    hours = sorted({int(h) for h in settings["publish_hours"].split(",") if h.strip().isdigit() and int(h) < 24}) or [12]
+    taken = {j["publish_at"] for j in list_jobs() if j.get("publish_at")}
+    earliest = datetime.now(timezone.utc) + timedelta(minutes=20)
+    day = datetime.now(tz).date()
+    for _ in range(30):
+        for h in hours:
+            slot = datetime.combine(day, dtime(h), tz).astimezone(timezone.utc)
+            if slot >= earliest and slot.strftime("%Y-%m-%dT%H:%M:%SZ") not in taken:
+                return slot
+        day += timedelta(days=1)
+    return earliest
+
+
 def upload(job_id: str) -> dict:
     job = get(job_id)
     settings = config.load_settings()
     _step(job, "uploading", "Upload ke YouTube…")
+    publish_at = None
+    if settings["schedule_publish"] and settings["privacy"] == "public":
+        publish_at = next_publish_slot(settings).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
-        job["youtube_id"] = uploader.upload(str(config.JOBS_DIR / job_id / job["video"]), job["plan"], settings, job["format"])
-        _step(job, "uploaded", f"Terupload: https://youtu.be/{job['youtube_id']} ({settings['privacy']})")
+        job["youtube_id"] = uploader.upload(str(config.JOBS_DIR / job_id / job["video"]), job["plan"], settings,
+                                            job["format"], publish_at)
+        job["publish_at"] = publish_at
+        if publish_at:
+            local = datetime.fromisoformat(publish_at.replace("Z", "+00:00")).astimezone(ZoneInfo(settings["timezone"]))
+            when = f"tayang otomatis {local.strftime('%d %b %H:%M')} ({settings['timezone']})"
+        else:
+            when = settings["privacy"]
+        _step(job, "uploaded", f"Terupload: https://youtu.be/{job['youtube_id']} — {when}")
     except Exception as e:
         job["error"] = str(e)
         _step(job, "rendered", f"Upload gagal: {e}")
