@@ -106,7 +106,7 @@ jobs:
           path: shards
       - name: Gabungkan rekaman
         run: |
-          cp -n plan/tools/voice/voice-ref-a.wav tools/voice/voice-ref-a.wav || true
+          [ -f tools/voice/voice-ref-a.wav ] || cp plan/tools/voice/voice-ref-a.wav tools/voice/voice-ref-a.wav
           mkdir -p "$AUDIO_DIR"
           find shards -name '*.mp3' -exec cp {} "$AUDIO_DIR/" \;
           python3 tools/voice/voxcpm_record.py merge "$AUDIO_DIR" shards
@@ -115,8 +115,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rm -f tools/voice/redo.json   # daftar rekam ulang sudah dikerjakan
-          git add -A "$AUDIO_DIR" tools/voice/voice-ref-a.wav tools/voice/redo.json
+          git rm -q --ignore-unmatch tools/voice/redo.json   # daftar rekam ulang sudah dikerjakan
+          git add -A "$AUDIO_DIR" tools/voice/voice-ref-a.wav
           git commit -m "Rekam suara pemandu dengan VoxCPM2 (Suara A)" || echo "Tidak ada perubahan"
           for i in 1 2 3; do git pull --rebase -q origin "$GITHUB_REF_NAME" && git push -q origin HEAD:"$GITHUB_REF_NAME" && break; sleep 5; done
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
