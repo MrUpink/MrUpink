@@ -201,7 +201,8 @@ registerGame({
     let g, W, H;
     function clear() { g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); }
     function setup() {
-      const old = g ? canvas.toDataURL() : null;
+      let old = null;
+      try { old = g ? canvas.toDataURL() : null; } catch (e) { /* kanvas berisi gambar stempel (tainted) */ }
       ({ g, w: W, h: H } = fitCanvas(canvas, wrap));
       clear();
       if (old) { const img = new Image(); img.onload = () => g.drawImage(img, 0, 0, W, H); img.src = old; }
@@ -211,8 +212,10 @@ registerGame({
       canvas.setPointerCapture(e.pointerId);
       const p = pointerPos(e, canvas);
       if (tool === 'stamp') {
-        g.font = `${size * 4}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.fillText(stamp, p.x, p.y);
+        const img = Emoji.image(stamp);
+        const s = size * 4;
+        if (img && img.complete && img.naturalWidth) g.drawImage(img, p.x - s / 2, p.y - s / 2, s, s);
+        else { g.font = `${s}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(stamp, p.x, p.y); }
         Sound.pop();
         return;
       }

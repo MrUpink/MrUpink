@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="sky">#BFE9FF</color>
-    <color name="icon_bg">#FFD43B</color>
+    <color name="sky">#170F52</color>
     <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/sky</item>
         <item name="android:statusBarColor">@color/sky</item>
         <item name="android:navigationBarColor">@color/sky</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

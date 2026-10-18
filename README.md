@@ -67,9 +67,18 @@ Setelah menambah atau mengubah kalimat di permainan, jalankan
 `AGES=1,5,10 node tools/voice/coverage.js` (butuh Playwright) untuk memastikan semua kalimat
 sudah terdaftar di `phrases.js`.
 
-> Catatan: `edge-tts` memakai layanan *Read Aloud* Microsoft Edge yang gratis tetapi tidak resmi.
-> Untuk publikasi di Play Store, pertimbangkan mesin suara dengan lisensi jelas
-> (mis. Piper) — cukup ganti `build_audio.py`, format `manifest.js` tetap sama.
+> **Sebelum rilis berbayar:** isi secret `AZURE_SPEECH_KEY` & `AZURE_SPEECH_REGION` agar suara
+> direkam lewat Azure Speech (resmi, boleh komersial, paket gratis F0 cukup). Tanpa secret, build
+> memakai `edge-tts` yang tidak resmi — hanya untuk uji coba. Detail di
+> [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Tampilan & aset
+
+Tema **"Galaksi Ceria"**: latar luar angkasa beraurora, panel kaca, tombol bercahaya, emoji 3D
+**Microsoft Fluent Emoji** (MIT) dan font **Fredoka** (SIL OFL). Semua aset boleh dipakai komersial;
+daftar lengkap & teks lisensi ada di [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Setelah menambah emoji baru di kode, jalankan `node tools/assets/fetch_assets.js` untuk menyalin
+gambar 3D-nya.
 
 ## Mencoba di browser
 

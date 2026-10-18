@@ -23,11 +23,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: app/src/main/assets/www/audio
-          key: voice-${{ hashFiles('phrases.json', 'tools/voice/build_audio.py') }}
-          restore-keys: voice-
+          key: voice-${{ secrets.AZURE_SPEECH_KEY != '' && 'azure' || 'edge' }}-${{ hashFiles('phrases.json', 'tools/voice/build_audio.py') }}
+          restore-keys: voice-${{ secrets.AZURE_SPEECH_KEY != '' && 'azure' || 'edge' }}-
 
       - name: Rekam suara natural
         continue-on-error: true # bila gagal, aplikasi tetap memakai suara HP
+        env:
+          # Isi di Settings → Secrets → Actions untuk rilis berbayar (suara Azure resmi).
+          AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
+          AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}
         run: |
           pip install edge-tts==7.3.1
           python tools/voice/build_audio.py phrases.json app/src/main/assets/www/audio
