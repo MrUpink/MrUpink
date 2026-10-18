@@ -16,25 +16,32 @@ sandbox.window = sandbox;
 vm.createContext(sandbox);
 for (const f of ['js/core.js', 'js/data.js']) vm.runInContext(fs.readFileSync(path.join(WWW, f), 'utf8'), sandbox, { filename: f });
 const {
-  speechChunks, speechKey, sayLetter, saySyllable, PRAISE, RETRY, LETTERS, WORDS, SENTENCES, COLORS, COLOR_OBJECTS,
+  speechChunks, speechKey, sentenceKey, sayLetter, saySyllable, PRAISE, RETRY, LETTERS, WORDS, SENTENCES, COLORS, COLOR_OBJECTS,
   SHAPES, ANIMALS, ANIMAL_TRIVIA, COUNTABLES,
-} = vm.runInContext(`({ speechChunks, speechKey, sayLetter, saySyllable, PRAISE, RETRY, LETTERS, WORDS, SENTENCES,
+} = vm.runInContext(`({ speechChunks, speechKey, sentenceKey, sayLetter, saySyllable, PRAISE, RETRY, LETTERS, WORDS, SENTENCES,
   COLORS, COLOR_OBJECTS, SHAPES, ANIMALS, ANIMAL_TRIVIA, COUNTABLES })`, sandbox);
 
 const out = new Map(); // key -> text
 function addChunk(key, text) { if (key && !out.has(key)) out.set(key, text); }
 /* Tambah kalimat lengkap: dipecah sama persis seperti saat diputar. */
-function say(sentence) {
-  const s = String(sentence);
+/* Tambah kalimat: direkam utuh (bila lebih dari satu potongan) sekaligus per potongan.
+ * Potongan memakai tanda baca aslinya (koma = intonasi berlanjut, ? = bertanya, ! = seruan). */
+function say(sentence, { whole = true } = {}) {
+  const s = String(sentence).trim();
+  const key = sentenceKey(s);
+  if (whole && key) addChunk(key, /[.!?]$/.test(s) ? s : s + '.');
   const re = /([^,.!?;:]+)([,.!?;:]*)/g;
   let m;
   while ((m = re.exec(s))) {
     const chunk = m[1].trim();
     if (!chunk || /^\d+$/.test(chunk)) continue; // angka direkam terpisah
-    const end = m[2].includes('?') ? '?' : m[2].includes('!') ? '!' : '.';
+    const p = m[2];
+    const end = p.includes('?') ? '?' : p.includes('!') ? '!' : p.includes(',') ? ',' : '.';
     addChunk(speechKey(chunk), chunk + end);
   }
 }
+/* Pola dengan angka acak: hanya potongannya yang direkam. */
+const sayParts = (sentence) => say(sentence, { whole: false });
 
 /* ---- Angka: 0–100 utuh + ratusan ---- */
 for (let n = 0; n <= 100; n++) addChunk(String(n), String(n));
@@ -74,18 +81,18 @@ say('Contoh kata');
 /* ---- Angka & berhitung ---- */
 say('Nol. Tidak ada apa-apa.');
 for (const o of COUNTABLES) {
-  say(`Ada, ${o.n}.`);
+  sayParts(`Ada, ${o.n}.`);
   say(`Ada berapa ${o.n}?`);
   say(`Mana ${o.n} yang lebih banyak?`);
   say(`Mana ${o.n} yang lebih sedikit?`);
 }
-['tambah', 'kurang', 'kali', 'bagi'].forEach((op) => say(`Berapa, ${op}, sama dengan berapa?`));
+['tambah', 'kurang', 'kali', 'bagi'].forEach((op) => sayParts(`Berapa, ${op}, sama dengan berapa?`));
 say('sama dengan');
 say('Mana angka yang paling besar?');
 say('Mana angka yang paling kecil?');
 say('Angka berapa yang hilang?');
 say('Jam berapa sekarang?');
-say('jam, jam setengah, lewat seperempat, kurang seperempat, lewat, menit');
+sayParts('jam, jam setengah, lewat seperempat, kurang seperempat, lewat, menit');
 say('Ayo tulis angka');
 say('Pecahkan balon angka');
 say('Pecahkan balon jawaban');

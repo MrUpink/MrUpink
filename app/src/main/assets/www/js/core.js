@@ -90,6 +90,11 @@ function speechChunks(text) {
 function speechKey(chunk) {
   return chunk.toLowerCase().replace(/\s+/g, ' ').trim();
 }
+/* Kunci rekaman kalimat utuh (dengan intonasi & jeda tanda baca yang alami). */
+function sentenceKey(text) {
+  const parts = speechChunks(text);
+  return parts.length > 1 ? parts.map(speechKey).join(' / ') : null;
+}
 /* Angka 0–999 → kunci klip: 0–100 utuh, ratusan + sisa (345 → "300", "45"). */
 function numberKeys(n) {
   if (n <= 100) return [String(n)];
@@ -126,6 +131,10 @@ const Voice = (() => {
   /* Daftar file klip untuk kalimat, atau null bila ada potongan tanpa rekaman. */
   function resolve(text) {
     const map = clips();
+    // 1) Kalimat utuh direkam sekaligus → intonasi paling alami
+    const whole = sentenceKey(text);
+    if (whole && map[whole]) return [map[whole]];
+    // 2) Disusun dari potongan (untuk kalimat berisi angka acak)
     const files = [];
     for (const chunk of speechChunks(text)) {
       const keys = /^\d+$/.test(chunk) ? numberKeys(+chunk) : [speechKey(chunk)];

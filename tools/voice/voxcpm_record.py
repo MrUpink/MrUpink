@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Merekam suara pemandu aplikasi dengan VoxCPM2 (Apache-2.0) memakai "Suara C".
+"""Merekam suara pemandu aplikasi dengan VoxCPM2 (Apache-2.0) memakai "Suara A".
 
-Suara C = referensi tools/voice/voice-ref-c.wav (dibuat dengan voice design, lihat voxcpm_trial.py).
-Setiap kalimat dibuat dengan voice cloning + continuation dari referensi itu, lalu diperlambat
-(tempo 0.88), disamakan volumenya, dan jeda hening di awal/akhir dipotong. Hasilnya didengar ulang
+Suara A = suara wanita dari uji coba pertama (voice design, seed 7), referensinya disimpan di
+tools/voice/voice-ref-a.wav. Setiap kalimat dibuat dengan voice cloning + continuation dari referensi
+itu (tanda baca dipertahankan agar jeda & intonasi alami), lalu diperlambat ke 85% dan jeda hening di
+awal/akhir dipotong. Hasilnya didengar ulang
 oleh pengenal suara (faster-whisper); bila transkripnya tidak cocok dengan teks, kalimat direkam
 ulang dengan seed lain (maks. 6 kali) dan rekaman terbaik yang dipakai.
 
@@ -25,11 +26,11 @@ import subprocess
 import sys
 import time
 
-VOICE_ID = "voxcpm2-c"
-REF_WAV = os.path.join(os.path.dirname(__file__), "voice-ref-c.wav")
-REF_TEXT = "Halo, adik-adik! Wah, hari ini kita akan belajar sambil bermain. Seru sekali, ya! Ayo, kita mulai!"
-SEED = 37
-TEMPO = 0.88
+VOICE_ID = "voxcpm2-a"
+REF_WAV = os.path.join(os.path.dirname(__file__), "voice-ref-a.wav")
+REF_TEXT = "Halo adik-adik! Ayo kita belajar membaca dan berhitung bersama hari ini."
+SEED = 7
+TEMPO = 0.85
 TRIES = 6            # percobaan maksimal per kalimat
 GOOD_SCORE = 0.85    # kemiripan transkrip (Whisper) dengan teks agar rekaman diterima
 MIN_ASR_LETTERS = 4  # huruf/suku kata tunggal tidak diperiksa (pengenal suara tidak andal untuk itu)
@@ -122,8 +123,7 @@ def cmd_record(plan_path, shard, out_dir):
     print(f"Model siap ({time.time() - t0:.0f} dtk). Merekam {len(group)} kalimat.", flush=True)
     filt = (f"atempo={TEMPO},"
             "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
-            "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
-            "loudnorm=I=-16:TP=-1.5:LRA=11")
+            "silenceremove=start_periods=1:start_threshold=-45dB,areverse")
     done = {}
     for i, it in enumerate(group, 1):
         text = synth_text(it)
@@ -136,7 +136,7 @@ def cmd_record(plan_path, shard, out_dir):
             for k in range(TRIES if check else 1):
                 torch.manual_seed(SEED + k)
                 wav = model.generate(text=text, prompt_wav_path=REF_WAV, prompt_text=REF_TEXT,
-                                     reference_wav_path=REF_WAV, cfg_value=2.5, inference_timesteps=12,
+                                     reference_wav_path=REF_WAV, cfg_value=2.0, inference_timesteps=10,
                                      max_len=40 + 4 * len(text))  # batas aman agar tidak "kebablasan"
                 raw = os.path.join(out_dir, f"{name}.{k}.wav")
                 mp3 = os.path.join(out_dir, f"{name}.{k}.mp3")
@@ -175,7 +175,7 @@ def cmd_merge(audio_dir, clips_dir):
         if f.endswith(".mp3") and f not in used:
             os.remove(os.path.join(audio_dir, f))
     with open(manifest_path, "w", encoding="utf-8") as f:
-        f.write("/* Dibuat otomatis oleh tools/voice/voxcpm_record.py — suara VoxCPM2 \"Suara C\" (Apache-2.0) */\n")
+        f.write("/* Dibuat otomatis oleh tools/voice/voxcpm_record.py — suara VoxCPM2 \"Suara A\" (Apache-2.0) */\n")
         f.write(f"window.AUDIO_SOURCE = {json.dumps(VOICE_ID)};\n")
         f.write("window.AUDIO_CLIPS = " + json.dumps(have, ensure_ascii=False, sort_keys=True) + ";\n")
     print(f"{len(have)} klip di manifest")

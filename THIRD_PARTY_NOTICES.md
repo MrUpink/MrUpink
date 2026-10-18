@@ -13,12 +13,12 @@ Pemberitahuan lisensi juga ditampilkan di aplikasi: ⚙️ Pengaturan → 📜 L
 ## Suara pemandu
 
 Semua kalimat pemandu direkam dengan **VoxCPM2** (OpenBMB) — kode & bobot model berlisensi
-**Apache-2.0**, boleh dipakai komersial, tanpa akun atau biaya. Suara "Suara C" dibuat dengan fitur
+**Apache-2.0**, boleh dipakai komersial, tanpa akun atau biaya. Suara "Suara A" dibuat dengan fitur
 *voice design* VoxCPM2 (bukan tiruan suara orang sungguhan), lalu dipakai sebagai referensi untuk
 semua kalimat. Rekaman disimpan di APK (`www/audio/`), sehingga aplikasi tetap jalan offline.
 
-- Perekaman: workflow GitHub **Rekam Suara (VoxCPM2 - Suara C)** → `tools/voice/voxcpm_record.py`
-- Referensi suara: `tools/voice/voice-ref-c.wav`
+- Perekaman: workflow GitHub **Rekam Suara (VoxCPM2 - Suara A)** → `tools/voice/voxcpm_record.py`
+- Referensi suara: `tools/voice/voice-ref-a.wav`
 - Hanya kalimat baru yang direkam ulang ketika `tools/voice/phrases.js` berubah.
 
 ## Teks lisensi

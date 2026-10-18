@@ -1,6 +1,6 @@
-name: Rekam Suara (VoxCPM2 - Suara C)
+name: Rekam Suara (VoxCPM2 - Suara A)
 
-# Merekam semua kalimat aplikasi dengan VoxCPM2 (Apache-2.0, boleh komersial) memakai "Suara C",
+# Merekam semua kalimat aplikasi dengan VoxCPM2 (Apache-2.0, boleh komersial) memakai "Suara A",
 # dibagi ke banyak job paralel. Hasil di-commit ke app/src/main/assets/www/audio lalu APK dibangun.
 # Hanya kalimat yang belum punya rekaman yang direkam.
 on:
@@ -31,15 +31,15 @@ jobs:
       shards: ${{ steps.plan.outputs.shards }}
     steps:
       - uses: actions/checkout@v4
-      - name: Siapkan referensi Suara C
+      - name: Siapkan referensi Suara A
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ ! -f tools/voice/voice-ref-c.wav ]; then
+          if [ ! -f tools/voice/voice-ref-a.wav ]; then
             command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
-            # Ambil dari hasil uji suara (kandidat C) lalu kembalikan ke tempo aslinya
-            gh run download 39084523612 -R "$GITHUB_REPOSITORY" -n contoh-suara-voxcpm2 -D trial
-            ffmpeg -loglevel error -y -i trial/C-00-referensi.mp3 -filter:a "atempo=1.13636" -ac 1 -ar 24000 tools/voice/voice-ref-c.wav
+            # Suara wanita dari uji coba pertama (tempo asli)
+            gh run download 39083325034 -R "$GITHUB_REPOSITORY" -n contoh-suara-voxcpm2 -D trial
+            ffmpeg -loglevel error -y -i trial/00-suara-referensi.mp3 -ac 1 tools/voice/voice-ref-a.wav
           fi
       - name: Daftar kalimat yang perlu direkam
         id: plan
@@ -54,7 +54,7 @@ jobs:
           name: voice-plan
           path: |
             plan.json
-            tools/voice/voice-ref-c.wav
+            tools/voice/voice-ref-a.wav
 
   record:
     needs: plan
@@ -106,7 +106,7 @@ jobs:
           path: shards
       - name: Gabungkan rekaman
         run: |
-          cp -n plan/tools/voice/voice-ref-c.wav tools/voice/voice-ref-c.wav || true
+          cp -n plan/tools/voice/voice-ref-a.wav tools/voice/voice-ref-a.wav || true
           mkdir -p "$AUDIO_DIR"
           find shards -name '*.mp3' -exec cp {} "$AUDIO_DIR/" \;
           python3 tools/voice/voxcpm_record.py merge "$AUDIO_DIR" shards
@@ -116,8 +116,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           rm -f tools/voice/redo.json   # daftar rekam ulang sudah dikerjakan
-          git add -A "$AUDIO_DIR" tools/voice/voice-ref-c.wav tools/voice/redo.json
-          git commit -m "Rekam suara pemandu dengan VoxCPM2 (Suara C)" || echo "Tidak ada perubahan"
+          git add -A "$AUDIO_DIR" tools/voice/voice-ref-a.wav tools/voice/redo.json
+          git commit -m "Rekam suara pemandu dengan VoxCPM2 (Suara A)" || echo "Tidak ada perubahan"
           for i in 1 2 3; do git pull --rebase -q origin "$GITHUB_REF_NAME" && git push -q origin HEAD:"$GITHUB_REF_NAME" && break; sleep 5; done
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 

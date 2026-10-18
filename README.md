@@ -54,12 +54,12 @@ Atau buka folder ini di **Android Studio** lalu tekan ▶ Run.
 
 ## Suara natural (offline)
 
-Suara pemandu adalah **"Suara C"** — suara guru perempuan yang lembut & ceria, dibuat dengan model
+Suara pemandu adalah **"Suara A"** — suara guru perempuan yang lembut & ceria, dibuat dengan model
 open-source **VoxCPM2** (Apache-2.0, boleh komersial, tanpa akun/biaya). Semua kalimat sudah
 direkam dan disimpan di dalam APK, jadi aplikasi tetap jalan **offline**.
 
 1. `tools/voice/phrases.js` mendaftar semua potongan kalimat yang diucapkan aplikasi.
-2. Workflow **Rekam Suara (VoxCPM2 - Suara C)** (`.github/workflows/voice-record.yml`) merekam
+2. Workflow **Rekam Suara (VoxCPM2 - Suara A)** (`.github/workflows/voice-record.yml`) merekam
    kalimat yang belum ada (paralel di banyak job), meng-commit hasilnya ke
    `app/src/main/assets/www/audio/`, lalu membangun APK. Workflow ini berjalan otomatis bila
    `phrases.js` berubah.
