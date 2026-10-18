@@ -9,6 +9,4 @@ captures/
 *.keystore
 *.jks
 
-# Klip suara dibuat otomatis saat build (tools/voice)
-app/src/main/assets/www/audio/*.mp3
 phrases.json

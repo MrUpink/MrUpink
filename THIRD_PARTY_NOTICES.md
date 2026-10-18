@@ -8,23 +8,18 @@ Pemberitahuan lisensi juga ditampilkan di aplikasi: ⚙️ Pengaturan → 📜 L
 | Microsoft Fluent Emoji 3D (194 ikon + ikon aplikasi) | `www/img/emoji/`, `res/mipmap-*/ic_launcher_foreground.webp` | © Microsoft Corporation (dikemas oleh LobeHub, paket npm `@lobehub/fluent-emoji-3d`) | MIT | Sertakan teks lisensi MIT (sudah ada di layar Lisensi) |
 | Font Fredoka (500/600/700) | `www/fonts/` | © The Fredoka Project Authors | SIL Open Font License 1.1 | Sertakan `OFL.txt` (sudah ada); font tidak boleh dijual terpisah |
 | Efek suara | dibuat oleh kode (Web Audio) | — | — | Tidak ada berkas pihak ketiga |
-| Suara pemandu | `www/audio/` (dibuat saat build) | lihat di bawah | lihat di bawah | lihat di bawah |
+| Suara pemandu (rekaman) | `www/audio/` | dibuat dengan model VoxCPM2 © OpenBMB | Apache-2.0 | Sertakan pemberitahuan lisensi (ada di layar Lisensi) |
 
 ## Suara pemandu
 
-Rekaman dibuat oleh `tools/voice/build_audio.py` saat build:
+Semua kalimat pemandu direkam dengan **VoxCPM2** (OpenBMB) — kode & bobot model berlisensi
+**Apache-2.0**, boleh dipakai komersial, tanpa akun atau biaya. Suara "Suara C" dibuat dengan fitur
+*voice design* VoxCPM2 (bukan tiruan suara orang sungguhan), lalu dipakai sebagai referensi untuk
+semua kalimat. Rekaman disimpan di APK (`www/audio/`), sehingga aplikasi tetap jalan offline.
 
-- **Untuk rilis berbayar: pakai Azure Speech (resmi).** Buat resource *Speech* di
-  <https://portal.azure.com> (paket gratis **F0** cukup: 500.000 karakter/bulan, aplikasi ini
-  ±6.000 karakter). Lalu di GitHub: *Settings → Secrets and variables → Actions* tambahkan
-  `AZURE_SPEECH_KEY` dan `AZURE_SPEECH_REGION` (mis. `southeastasia`). Build berikutnya otomatis
-  merekam ulang semua suara lewat Azure dengan suara yang sama (`id-ID-GadisNeural`).
-  Hasil suara dari layanan Azure boleh dipakai di aplikasi komersial sesuai ketentuan Microsoft
-  Azure (Microsoft Product Terms / Azure AI Speech).
-- **Tanpa secret**, build memakai `edge-tts` (layanan *Read Aloud* Edge, gratis tapi **tidak resmi**)
-  — hanya untuk uji coba / pengembangan, **jangan untuk rilis berbayar**.
-
-Log build menampilkan `Mesin suara: azure` atau `Mesin suara: edge`.
+- Perekaman: workflow GitHub **Rekam Suara (VoxCPM2 - Suara C)** → `tools/voice/voxcpm_record.py`
+- Referensi suara: `tools/voice/voice-ref-c.wav`
+- Hanya kalimat baru yang direkam ulang ketika `tools/voice/phrases.js` berubah.
 
 ## Teks lisensi
 

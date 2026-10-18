@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Mendaftar semua potongan kalimat yang diucapkan aplikasi, untuk direkam oleh build_audio.py.
+/* Mendaftar semua potongan kalimat yang diucapkan aplikasi, untuk direkam oleh voxcpm_record.py.
  * Keluaran (stdout): JSON [{ key, text }]
  *   key  = kunci klip (sama dengan speechKey() di js/core.js)
  *   text = teks yang dikirim ke mesin suara saat merekam

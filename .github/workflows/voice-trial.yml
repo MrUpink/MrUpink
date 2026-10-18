@@ -3,10 +3,6 @@ name: Uji Suara VoxCPM2
 # Membuat contoh suara dengan VoxCPM2 (Apache-2.0) untuk didengarkan sebelum dipakai di aplikasi.
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - tools/voice/voxcpm_trial.py
-      - .github/workflows/voice-trial.yml
 
 jobs:
   trial:

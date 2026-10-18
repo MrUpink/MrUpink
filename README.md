@@ -54,23 +54,21 @@ Atau buka folder ini di **Android Studio** lalu tekan ▶ Run.
 
 ## Suara natural (offline)
 
-Rekaman suara dibuat otomatis di GitHub Actions saat build:
+Suara pemandu adalah **"Suara C"** — suara guru perempuan yang lembut & ceria, dibuat dengan model
+open-source **VoxCPM2** (Apache-2.0, boleh komersial, tanpa akun/biaya). Semua kalimat sudah
+direkam dan disimpan di dalam APK, jadi aplikasi tetap jalan **offline**.
 
-1. `tools/voice/phrases.js` mendaftar semua potongan kalimat yang diucapkan aplikasi
-   (huruf, suku kata, kata, angka, soal, pujian, dll.).
-2. `tools/voice/build_audio.py` merekamnya dengan suara neural `id-ID-GadisNeural`
-   (lewat paket `edge-tts`) ke `app/src/main/assets/www/audio/` beserta `manifest.js`.
+1. `tools/voice/phrases.js` mendaftar semua potongan kalimat yang diucapkan aplikasi.
+2. Workflow **Rekam Suara (VoxCPM2 - Suara C)** (`.github/workflows/voice-record.yml`) merekam
+   kalimat yang belum ada (paralel di banyak job), meng-commit hasilnya ke
+   `app/src/main/assets/www/audio/`, lalu membangun APK. Workflow ini berjalan otomatis bila
+   `phrases.js` berubah.
 3. Aplikasi memutar klip tersebut; angka disusun dari klip angka. Kalimat tanpa rekaman
    diucapkan oleh mesin TTS HP sebagai cadangan.
 
 Setelah menambah atau mengubah kalimat di permainan, jalankan
 `AGES=1,5,10 node tools/voice/coverage.js` (butuh Playwright) untuk memastikan semua kalimat
 sudah terdaftar di `phrases.js`.
-
-> **Sebelum rilis berbayar:** isi secret `AZURE_SPEECH_KEY` & `AZURE_SPEECH_REGION` agar suara
-> direkam lewat Azure Speech (resmi, boleh komersial, paket gratis F0 cukup). Tanpa secret, build
-> memakai `edge-tts` yang tidak resmi — hanya untuk uji coba. Detail di
-> [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Tampilan & aset
 
